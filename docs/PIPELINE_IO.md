@@ -60,8 +60,9 @@
 ลำดับการรันเหมือนเดิมทุกประการ (ดู `README.md`) โดย workflow จัดกลุ่มเป็น step:
 
 ```
-01 fetch → 02 network/TAZ → 03,04,04b,05a,05b (จังหวัด)
-→ build_* (ราง/น้ำ/อากาศ/connector/centroid) → build_aadt_projection, 07a
+01 fetch → 02a สกัดถนนจาก OSM → 02b TAZ+ประชากร → 02 โครงข่ายสะอาด
+→ build_* (centroid → ราง/น้ำ/อากาศ/เรือสินค้า → connectors)
+→ 03,04,04b,05a,05b (จังหวัด) → build_aadt_projection, 07a
 → 08a, 13 calibrate, 14 assignment → 15 report → 09a,09d,10a,10b,11, build_project
 → 16 summary → 17 build site
 ```

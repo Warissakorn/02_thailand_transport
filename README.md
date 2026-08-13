@@ -46,9 +46,11 @@ mode choice → assignment) ครอบคลุม **ถนน · ราง ·
 ```bat
 cd projects\02_thailand_transport
 scripts\qpy.bat scripts\01_fetch_data.py all     & REM ดาวน์โหลดข้อมูลทุกแหล่ง
-scripts\qpy.bat scripts\02_prep_network_taz.py   & REM โครงข่ายถนน + TAZ จังหวัด
+scripts\qpy.bat scripts\02a_extract_osm.py      & REM สกัดถนนจาก pbf -> roads_raw_4326.gpkg
+scripts\qpy.bat scripts\02b_build_taz.py         & REM TAZ จังหวัด + ประชากรรายโซน (GADM + WorldPop)
+scripts\qpy.bat scripts\02_prep_network_taz.py   & REM โครงข่ายถนนสะอาด (speed/capacity/oneway)
+REM build_*.py        : centroid ถ่วง ปชก. -> ราง/น้ำ/อากาศ/เรือสินค้า -> connectors (ตามลำดับนี้)
 REM 03,04,04b,05a,05b : โมเดลระดับจังหวัด (trip gen -> gravity -> mode choice)
-REM build_*.py        : โครงข่ายราง/น้ำ/อากาศ/เรือสินค้า + connectors + centroid ถ่วง ปชก.
 scripts\qpy.bat scripts\build_aadt_projection.py & REM AADT ย้อนหลัง 2563-66 -> project ปีปัจจุบัน 2569 -> aadt_current.csv
 scripts\qpy.bat scripts\07a_geolocate_aadt.py    & REM วางสถานี AADT (chainage v2) จาก aadt_current.csv
 scripts\qpy.bat scripts\08a_district_prep.py     & REM TAZ อำเภอ 928 + trip gen

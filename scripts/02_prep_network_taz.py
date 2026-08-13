@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """ขั้น 2: เตรียมโครงข่ายถนน — รันใน Python console ของ QGIS (มี processing + GDAL)
-- อ่าน data/network/roads_raw_4326.gpkg (สกัดจาก pbf ด้วย ogr2ogr)
+- อ่าน data/network/roads_raw_4326.gpkg (สร้างโดย 02a_extract_osm.py)
 - เพิ่ม speed_kmh / travel_time_min / capacity_pcph ตามชั้นถนน (ใช้ maxspeed ถ้ามี)
 - reproject -> EPSG:32647 -> data/network/network_clean.gpkg
-TAZ (จังหวัด) + centroid สร้างแล้วใน data/zones_taz/ (ดู 02 ในแชต)
+TAZ (จังหวัด) + ประชากรรายโซน สร้างโดย 02b_build_taz.py -> data/zones_taz/
 """
 import os, processing
 from qgis.core import (QgsVectorLayer, QgsField, QgsVectorFileWriter,

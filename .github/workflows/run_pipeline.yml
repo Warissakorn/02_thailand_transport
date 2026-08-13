@@ -80,9 +80,25 @@ jobs:
       - name: 01 fetch data (gadm, osm, pop, aadt, targets)
         run: python3 scripts/01_fetch_data.py all
 
-      - name: 02 prep network + TAZ
+      # 02a/02b คือขั้นที่เดิมทำด้วยมือนอกสคริปต์ (ogr2ogr + สร้าง TAZ ใน QGIS)
+      # ผลลัพธ์ของทั้งคู่ถูก gitignore จึงต้องสร้างใหม่ทุกครั้งบนเครื่องเปล่า
+      - name: 02 extract OSM roads + build TAZ + clean network
         if: env.STAGES != 'fetch'
-        run: python3 scripts/02_prep_network_taz.py
+        run: |
+          python3 scripts/02a_extract_osm.py
+          python3 scripts/02b_build_taz.py
+          python3 scripts/02_prep_network_taz.py
+
+      # ลำดับตามสายพึ่งพา: centroid -> โครงข่ายราง/น้ำ/อากาศ -> access connector
+      - name: Multimodal networks (centroid -> rail/water/air/freight -> connectors)
+        if: env.STAGES == 'full'
+        run: |
+          python3 scripts/build_popweighted_centroids.py
+          python3 scripts/build_air_network.py
+          python3 scripts/build_water.py
+          python3 scripts/build_multimodal.py
+          python3 scripts/build_water_freight.py
+          python3 scripts/build_connectors.py
 
       - name: Province model (trip gen -> gravity -> mode choice)
         if: env.STAGES == 'full'
@@ -92,16 +108,6 @@ jobs:
           python3 scripts/04b_gravity.py
           python3 scripts/05a_linehaul.py
           python3 scripts/05b_mode_choice.py
-
-      - name: Multimodal networks (rail/water/air/freight + connectors)
-        if: env.STAGES == 'full'
-        run: |
-          python3 scripts/build_connectors.py
-          python3 scripts/build_multimodal.py
-          python3 scripts/build_water.py
-          python3 scripts/build_water_freight.py
-          python3 scripts/build_air_network.py
-          python3 scripts/build_popweighted_centroids.py
 
       - name: AADT projection + geolocation
         if: env.STAGES == 'full'
