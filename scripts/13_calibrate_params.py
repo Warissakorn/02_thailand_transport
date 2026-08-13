@@ -63,25 +63,21 @@ def part_a():
     from lib.transport_graph import build_road_graph, od_cost_matrix, gravity_furness, assign_multi, robust_tie, fit_stats
     net = QgsVectorLayer(B + r"\data\network\network_clean.gpkg|layername=network_clean", "n", "ogr")
     G = build_road_graph(net, directed=True)
-    log("graph: nodes=%d edges=%d oneway=%.1f%%" % (G.nN, G.nE, 100*G.Eoneway.mean()))
-    import multiprocessing as _mp
+    log("graph: nodes=%d edges=%d oneway=%.1f%% | %s" % (G.nN, G.nE, 100*G.Eoneway.mean(), _mem()))
     import lib.passign as passign
     from lib import scenario as _sc
     NW = _workers(_sc)
     os.environ["TT_DIJKSTRA_BATCH"] = str(_sc.get("dijkstra_batch", 32))
-    pool = _mp.Pool(NW, initializer=passign.init,
-                    initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
-    log("parallel pool: %d workers" % NW)
 
     cen = QgsVectorLayer(B + r"\data\zones_taz\district_centroids.gpkg|layername=district_centroids", "c", "ogr")
     dc = sorted([(f['district_id'], f.geometry().asPoint()) for f in cen.getFeatures()])
     dids = [d[0] for d in dc]; Z = len(dids); didx = {d: i for i, d in enumerate(dids)}
     tn, reach = robust_tie(G, [p for _, p in dc])
-    log("ties: %d districts | median first-tie reach=%.3f | repaired=%d" % (
-        Z, float(np.median(reach)), int((reach < 0.9).sum())))
+    log("ties: %d districts | median first-tie reach=%.3f | repaired=%d | %s" % (
+        Z, float(np.median(reach)), int((reach < 0.9).sum()), _mem()))
 
     cost = od_cost_matrix(G, tn)
-    log("OD cost: finite=%.3f" % np.isfinite(cost).mean())
+    log("OD cost: finite=%.3f | %s" % (np.isfinite(cost).mean(), _mem()))
 
     P = {'pax': np.zeros(Z), 'frg': np.zeros(Z)}; A = {'pax': np.zeros(Z), 'frg': np.zeros(Z)}
     for r in csv.DictReader(open(M + r"\1_trip_generation\district_tripgen.csv", encoding="utf-8")):
@@ -111,6 +107,10 @@ def part_a():
         demands.append(to_demand(T)); labels.append(('frg', bf))
     log("gravity done for %d beta candidates" % len(labels))
 
+    # สร้าง pool ตรงนี้ (ไม่ใช่ตอนต้น) เพื่อไม่ให้ worker กินหน่วยความจำค้างไว้
+    # ตลอดช่วง tie/od-cost/gravity ซึ่งเป็นช่วงที่ใช้ RAM สูงสุด
+    pool, how = passign.make_pool(NW, G)
+    log("parallel pool: %d workers (%s)" % (NW, how))
     flows = passign.run_assign(pool, NW, G.Ec, demands)   # ขนาน (free-flow beta search)
     pool.close(); pool.join()
     log("multi-assign sweep done (parallel)")
@@ -321,6 +321,15 @@ def part_b(target_pax, target_frg):
             w.writerow(["freight", m, round(tot_f.get(m, 0)/ssumf, 5),
                         target_frg.get(m, ""), round(sh_frg_all.get(m, 0), 5)])
     return asc_p, asc_f, fac_pax, fac_frg, sh_pax_all, sh_frg_all
+
+def _mem():
+    """หน่วยความจำสูงสุดที่โปรเซสนี้เคยใช้ (ไว้ไล่หาจุดที่ RAM พุ่งก่อนถูก kill)"""
+    try:
+        import resource
+        return "peak RSS %.2f GB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1048576.0)
+    except Exception:
+        return "peak RSS n/a"
+
 
 def _workers(sc):
     """จำนวน process ขนาน: scenario run.workers > จำนวนคอร์ (จำกัดไว้ที่ 4)

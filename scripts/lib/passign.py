@@ -24,6 +24,27 @@ def init(Eu, Ev, Eoneway, edge_of, nN, nE, directed):
     _S['directed'] = bool(directed)
 
 
+def make_pool(nworkers, G):
+    """สร้าง Pool ให้ประหยัดหน่วยความจำที่สุดเท่าที่ OS อนุญาต
+
+    ปัญหา: initargs ของ Pool ถูก pickle ส่งให้ worker ทุกตัว — G.edge_of เป็น dict
+    ~6.7 ล้านคีย์ (ราว 1 GB) กราฟระดับอำเภอจึงกินหน่วยความจำเป็นทวีคูณตามจำนวน worker
+    จนถูก OOM kill บนเครื่อง 16 GB
+
+    บน Linux (fork) จึงตั้งค่า global ในโปรเซสแม่ก่อน แล้ว fork เอา — worker เห็นข้อมูล
+    เดียวกันแบบ copy-on-write ไม่ต้องสำเนา ส่วน Windows (spawn) ใช้ initializer ตามเดิม
+    """
+    import multiprocessing as _mp
+    args = (G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed)
+    try:
+        ctx = _mp.get_context("fork")
+        init(*args)                      # ตั้งในแม่ -> ลูกได้มาแบบแชร์หน้า memory
+        return ctx.Pool(nworkers), "fork (shared)"
+    except (ValueError, AttributeError, OSError):
+        ctx = _mp.get_context()
+        return ctx.Pool(nworkers, initializer=init, initargs=args), ctx.get_start_method()
+
+
 def _csr(costs):
     Eu = _S['Eu']; Ev = _S['Ev']; two = _S['two']
     rows = np.concatenate([Eu, Ev[two]])

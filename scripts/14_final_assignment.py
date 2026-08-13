@@ -64,13 +64,9 @@ def main():
     t0 = G.Ec.copy(); cap_hr = G.Ecap_hr.copy()
 
     # ---- pool ขนาน: แบ่ง origins ไปหลาย process (flow บวกกันได้ -> ผลเท่า serial) ----
-    import multiprocessing as _mp
     import lib.passign as passign
     NW = workers()
     os.environ["TT_DIJKSTRA_BATCH"] = str(sc.get("dijkstra_batch", 32))
-    pool = _mp.Pool(NW, initializer=passign.init,
-                    initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
-    log("parallel pool: %d workers" % NW)
 
     cen = QgsVectorLayer(B + r"\data\zones_taz\district_centroids.gpkg|layername=district_centroids", "c", "ogr")
     dc = sorted([(f['district_id'], f.geometry().asPoint()) for f in cen.getFeatures()])
@@ -152,6 +148,9 @@ def main():
     # แต่ละรอบ: assign 7 component ที่เวลาแออัดปัจจุบัน (routing sweep เดียว) -> MSA-average
     # flow กระจายหลายเส้นตามสมดุล (มอเตอร์เวย์/เลี่ยงเมืองได้ flow) และ sum(component)=total เป๊ะ
     # (แทน final AON snapshot เดิมที่โยนทุก OD ลงเส้นเดียว -> สายขนานเป็น 0)
+    # สร้าง pool ตอนจะใช้จริง (หลัง tie/gravity/demand ที่กิน RAM สูงสุดผ่านไปแล้ว)
+    pool, how = passign.make_pool(NW, G)
+    log("parallel pool: %d workers (%s)" % (NW, how))
     xk = passign.run_assign(pool, NW, t0, peak_dems)   # 7 peak-flow arrays (free-flow)
     tot = total_of(xk)
     log("mp iter 1 maxpeak=%.0f" % tot.max())
