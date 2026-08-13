@@ -35,6 +35,18 @@ SNAP_TOL = 1500.0
 _m = sc.section("model")
 BASE_RATE, BASE_FF = _m.get("trip_rate_pax", 2.0), _m.get("freight_factor", 0.10)
 
+def workers():
+    """จำนวน process ขนาน: scenario run.workers > จำนวนคอร์ (จำกัดไว้ที่ 4)
+
+    worker แต่ละตัวได้สำเนากราฟผ่าน pickle เต็ม ๆ ตั้งค่าสูงเกินจำนวน RAM
+    ของเครื่อง (เช่น runner ฟรีของ GitHub) จะโดน OOM kill เงียบ ๆ ระหว่างสร้าง pool
+    """
+    n = int(sc.get("workers", 0) or 0)
+    if n <= 0:
+        n = min(os.cpu_count() or 2, 4)
+    return max(n, 1)
+
+
 def main():
     from qgis.core import (QgsApplication, QgsVectorLayer, QgsSpatialIndex, QgsFeature,
                            QgsCoordinateReferenceSystem)
@@ -54,10 +66,10 @@ def main():
     # ---- pool ขนาน: แบ่ง origins ไปหลาย process (flow บวกกันได้ -> ผลเท่า serial) ----
     import multiprocessing as _mp
     import lib.passign as passign
-    NW = 6
+    NW = workers()
     pool = _mp.Pool(NW, initializer=passign.init,
                     initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
-    log("parallel pool: %d workers (cores 8/12, RAM-bound)" % NW)
+    log("parallel pool: %d workers" % NW)
 
     cen = QgsVectorLayer(B + r"\data\zones_taz\district_centroids.gpkg|layername=district_centroids", "c", "ogr")
     dc = sorted([(f['district_id'], f.geometry().asPoint()) for f in cen.getFeatures()])

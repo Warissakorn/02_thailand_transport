@@ -138,15 +138,6 @@ jobs:
           python3 scripts/11_road_components.py
           python3 scripts/build_project.py
 
-      # สคริปต์เขียน log ละเอียดลง output/_*.log -> ดึงมาไว้ในหน้า run เวลาพัง
-      - name: Script logs (on failure)
-        if: failure()
-        run: |
-          for f in output/_*.log; do
-            [ -e "$f" ] || continue
-            echo "::group::$f"; tail -n 60 "$f"; echo "::endgroup::"
-          done
-
       - name: Job summary
         if: always()
         run: python3 scripts/16_summary.py >> "$GITHUB_STEP_SUMMARY"
@@ -174,6 +165,16 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+      # วางไว้ท้ายสุดโดยตั้งใจ: log ของขั้นที่พังจะอยู่ท้ายไฟล์ log ของ job
+      # หาได้ทันทีโดยไม่ต้องไล่อ่านทั้งหมด (สคริปต์เขียนรายละเอียดลง output/_*.log)
+      - name: Script logs of the failing stage
+        if: failure()
+        run: |
+          echo "== log ที่ถูกแก้ไขล่าสุด (ขั้นที่กำลังทำงานตอนพัง) =="
+          ls -t output/_*.log 2>/dev/null | head -3 | while read -r f; do
+            echo "::group::$f"; tail -n 40 "$f"; echo "::endgroup::"
+          done
 
   # เผยแพร่หน้าเว็บผลลัพธ์ (ต้องเปิด Settings -> Pages -> Source: GitHub Actions ก่อน)
   deploy-pages:

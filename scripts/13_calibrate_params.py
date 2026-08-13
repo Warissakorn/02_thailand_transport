@@ -66,7 +66,8 @@ def part_a():
     log("graph: nodes=%d edges=%d oneway=%.1f%%" % (G.nN, G.nE, 100*G.Eoneway.mean()))
     import multiprocessing as _mp
     import lib.passign as passign
-    NW = 6
+    from lib import scenario as _sc
+    NW = _workers(_sc)
     pool = _mp.Pool(NW, initializer=passign.init,
                     initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
     log("parallel pool: %d workers" % NW)
@@ -319,6 +320,18 @@ def part_b(target_pax, target_frg):
             w.writerow(["freight", m, round(tot_f.get(m, 0)/ssumf, 5),
                         target_frg.get(m, ""), round(sh_frg_all.get(m, 0), 5)])
     return asc_p, asc_f, fac_pax, fac_frg, sh_pax_all, sh_frg_all
+
+def _workers(sc):
+    """จำนวน process ขนาน: scenario run.workers > จำนวนคอร์ (จำกัดไว้ที่ 4)
+
+    worker แต่ละตัวได้สำเนากราฟผ่าน pickle เต็ม ๆ ตั้งค่าสูงเกินจำนวน RAM
+    ของเครื่อง (เช่น runner ฟรีของ GitHub) จะโดน OOM kill เงียบ ๆ ระหว่างสร้าง pool
+    """
+    n = int(sc.get("workers", 0) or 0)
+    if n <= 0:
+        n = min(os.cpu_count() or 2, 4)
+    return max(n, 1)
+
 
 def main():
     from qgis.core import QgsApplication
