@@ -89,3 +89,12 @@
 ```
 
 อยากรันด้วยมือ/เลือก scenario อื่น: **Actions → Run transport model pipeline → Run workflow**
+
+## 6. การตรวจก่อน merge
+
+`main` ถูกป้องกันไว้: ต้องผ่าน PR และ job `validate` ต้องเขียว (ดู [`BRANCH_PROTECTION.md`](BRANCH_PROTECTION.md))
+ตรวจแบบเดียวกันบนเครื่องตัวเองก่อน push ได้ด้วย:
+
+```bash
+python3 scripts/_check_inputs.py   # ไฟล์นำเข้าครบ + scenario ทุก key สะกดถูกและอยู่ในช่วง
+```

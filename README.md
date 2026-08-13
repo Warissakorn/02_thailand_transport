@@ -40,6 +40,7 @@ mode choice → assignment) ครอบคลุม **ถนน · ราง ·
 ```
 สัญญา **Input → Process → Output** และคำอธิบายทุก key ของ scenario:
 [`docs/PIPELINE_IO.md`](docs/PIPELINE_IO.md) · คู่มือแก้ข้อมูลนำเข้า: [`inputs/README.md`](inputs/README.md)
+· กฎของ branch `main` และวิธีเปิดใช้: [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md)
 
 ## Pipeline (ทำซ้ำได้ทุกขั้น)
 รันทุกสคริปต์ผ่าน **`scripts\qpy.bat`** (ตั้ง environment QGIS headless):
