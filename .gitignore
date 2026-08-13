@@ -1,0 +1,13 @@
+# Large regeneratable data — re-download/rebuild via scripts/01_fetch_data.py
+# and scripts/02_prep_network_taz.py (see docs/ for pipeline order).
+data/raw/
+data/boundaries/
+data/network/
+data/zones_taz/
+data/processed/
+
+# Full model run outputs — regenerate via scripts/03_*.py .. 14_final_assignment.py
+model/
+
+__pycache__/
+*.pyc

@@ -1,0 +1,81 @@
+﻿category,highway_ref,name,osm_class,lanes,cap_veh_hr,model_vol_pcu_day,voc_peak,length_km,province
+ZERO_FLOW_highcap,7,ชลบุรี-พัทยา,motorway,12,24000,0.0,0.0,0.16,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,9,18000,0.0,0.0,0.05,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,9,18000,0.0,0.0,0.05,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,9,18000,0.0,0.0,0.01,Samut Prakan
+ZERO_FLOW_highcap,7,ชลบุรี-พัทยา,trunk,9,16200,0.0,0.0,0.07,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,8,16000,0.0,0.0,0.15,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,8,16000,0.0,0.0,0.21,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,8,16000,0.0,0.0,0.05,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,8,16000,0.0,0.0,0.05,Samut Prakan
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,8,16000,0.0,0.0,0.03,Pathum Thani
+ZERO_FLOW_highcap,31,ถนนวิภาวดีรังสิต,trunk,8,14400,0.0,0.0,0.09,Bangkok Metropolis
+ZERO_FLOW_highcap,31,ถนนวิภาวดีรังสิต,trunk,8,14400,0.0,0.0,0.06,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,7,14000,0.0,0.0,0.14,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,7,14000,0.0,0.0,0.02,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,7,14000,0.0,0.0,0.06,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,7,14000,0.0,0.0,0.07,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,7,14000,0.0,0.0,0.02,Samut Prakan
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,7,14000,0.0,0.0,0.27,Pathum Thani
+ZERO_FLOW_highcap,,ถนนพระรามที่ 4,primary,8,12800,0.0,0.0,0.21,Bangkok Metropolis
+ZERO_FLOW_highcap,31,ถนนวิภาวดีรังสิต,trunk,7,12600,0.0,0.0,0.11,Bangkok Metropolis
+ZERO_FLOW_highcap,31,ถนนวิภาวดีรังสิต,trunk,7,12600,0.0,0.0,0.09,Bangkok Metropolis
+ZERO_FLOW_highcap,1,ถนนพหลโยธิน,trunk,7,12600,0.0,0.0,0.36,Pathum Thani
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,0.0,0.0,0.78,Bangkok Metropolis
+ZERO_FLOW_highcap,7,พัทยา-ชลบุรี,motorway,6,12000,0.0,0.0,0.31,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.11,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.13,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.16,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.13,Chon Buri
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.04,Chachoengsao
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.06,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.13,Samut Prakan
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.23,Chachoengsao
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.07,Chachoengsao
+ZERO_FLOW_highcap,,ทางพิเศษประจิมรัถยา,motorway,6,12000,0.0,0.0,0.22,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.02,Bangkok Metropolis
+ZERO_FLOW_highcap,7,ถนนกรุงเทพฯ-ชลบุรี,motorway,6,12000,0.0,0.0,0.1,Bangkok Metropolis
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,0.0,0.0,0.04,Bangkok Metropolis
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,0.0,0.0,0.1,Pathum Thani
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,0.0,0.0,0.16,Pathum Thani
+ZERO_FLOW_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,0.0,0.0,0.15,Pathum Thani
+UNDERLOADED_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,3631.5,0.0272,0.51,Bangkok Metropolis
+UNDERLOADED_highcap,9,ถนนกาญจนาภิเษก,motorway,6,12000,4648.0,0.0349,0.39,Bangkok Metropolis
+UNDERLOADED_highcap,,ถนนเพชรบุรี,primary,7,11200,473.8,0.0038,0.05,Bangkok Metropolis
+UNDERLOADED_highcap,31,ถนนวิภาวดีรังสิต,secondary,8,11200,4258.1,0.0342,0.04,Bangkok Metropolis
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,6,10800,802.9,0.0067,0.1,Samut Prakan
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,6,10800,802.9,0.0067,0.22,Samut Prakan
+UNDERLOADED_highcap,,,motorway_link,7,10500,228.8,0.002,0.17,Chon Buri
+UNDERLOADED_highcap,31,ถนนวิภาวดีรังสิต,secondary,7,9800,4258.1,0.0391,0.03,Bangkok Metropolis
+UNDERLOADED_highcap,,ถนนโพศรี,primary,6,9600,873.5,0.0082,0.03,Udon Thani
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,5,9000,802.9,0.008,0.5,Samut Prakan
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,5,9000,985.1,0.0099,0.15,Bangkok Metropolis
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,5,9000,985.1,0.0099,1.38,Samut Prakan
+UNDERLOADED_highcap,,ถนนสุวรรณภูมิ 1,trunk,5,9000,985.1,0.0099,0.14,Samut Prakan
+UNDERLOADED_highcap,2,ถนนมิตรภาพ,trunk,5,9000,1440.0,0.0144,0.1,Nakhon Ratchasima
+UNDERLOADED_highcap,2,ถนนมิตรภาพ,trunk,5,9000,1504.8,0.015,0.15,Nakhon Ratchasima
+UNDERLOADED_highcap,3,ถนนสุขุมวิท,trunk,5,9000,2842.9,0.0284,0.15,Chon Buri
+UNDERLOADED_highcap,214,ถนนภักดีชุมพล,trunk,5,9000,2949.7,0.0295,0.18,Surin
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,3561.5,0.0356,0.11,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,3561.5,0.0356,0.05,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,3561.5,0.0356,0.12,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,3561.5,0.0356,0.01,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,3561.5,0.0356,0.09,Chon Buri
+UNDERLOADED_highcap,216,ถนนวงแหวนรอบเมืองอุดรธานี,trunk,5,9000,3810.8,0.0381,0.1,Udon Thani
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.06,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.12,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.14,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.1,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.11,Chon Buri
+UNDERLOADED_highcap,,ถนนสุขุมวิท,trunk,5,9000,4880.1,0.0488,0.02,Chon Buri
+UNDERLOADED_highcap,อย.ถ4-0001,ถนนเทศบาลเมืองอโยธยา 1,secondary,6,8400,29.8,0.0003,0.03,Phra Nakhon Si Ayutthaya
+UNDERLOADED_highcap,อย.ถ4-0001,ถนนเทศบาลเมืองอโยธยา 1,secondary,6,8400,29.8,0.0003,0.01,Phra Nakhon Si Ayutthaya
+UNDERLOADED_highcap,อย.ถ4-0001,ถนนเทศบาลเมืองอโยธยา 1,secondary,6,8400,29.8,0.0003,0.02,Phra Nakhon Si Ayutthaya
+UNDERLOADED_highcap,,ถนนบรรพปราการ,secondary,6,8400,66.8,0.0007,0.02,Chiang Rai
+UNDERLOADED_highcap,,ถนนบรรพปราการ,secondary,6,8400,116.4,0.0012,0.04,Chiang Rai
+UNDERLOADED_highcap,,ถนนบรรพปราการ,secondary,6,8400,116.4,0.0012,0.05,Chiang Rai
+UNDERLOADED_highcap,,ถนนบรรพปราการ,secondary,6,8400,116.4,0.0012,0.0,Chiang Rai
+UNDERLOADED_highcap,,ถนนบรรพปราการ,secondary,6,8400,116.4,0.0012,0.04,Chiang Rai
+UNDERLOADED_highcap,4020,ถนนวิชิตสงคราม,secondary,6,8400,124.3,0.0013,0.1,Phuket
+UNDERLOADED_highcap,4020,ถนนวิชิตสงคราม,secondary,6,8400,124.3,0.0013,0.05,Phuket
+UNDERLOADED_highcap,,ถนนเจริญนคร,secondary,6,8400,132.9,0.0014,0.4,Bangkok Metropolis

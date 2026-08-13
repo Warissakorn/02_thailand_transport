@@ -1,0 +1,18 @@
+﻿parameter,value,unit,source/method
+TRIP_RATE_PAX,0.0792,trips/person/day (strategic network),calibrated: LS scale vs AADT2565 pax-PCU
+FREIGHT_FACTOR,0.1709,-,calibrated: LS scale vs AADT2565 frg-PCU
+BETA_PAX,0.025,1/min,grid search vs AADT (R2 max)
+BETA_FRG,0.008,1/min,grid search vs AADT
+VOT_GEN,180.0,baht/hr,assumption (documented)
+VOT_BIZ,600.0,baht/hr,assumption; business segment
+BIZ_SHARE,0.12,-,assumption
+THETA (logit),0.02,1/min,assumption
+K_FACTOR,0.09,-,assumption (design-hour practice)
+BPR alpha/beta,0.15 / 4.0,-,BPR (1964) standard
+MC_MAX_MIN,90,min,assumption: motorcycle short-trip mode
+PCU car/mc/bus/truck,1.0/0.33/2.5/2.0,-,standard practice
+ASC_pax_bus,130.3,eq.min,fitted to NAM 2565 shares
+ASC_pax_rail,129.9,eq.min,fitted to NAM 2565 shares
+ASC_pax_air,-287.1,eq.min,fitted to NAM 2565 shares
+ASC_frg_rail,480.4,eq.min,fitted to freight tonnage shares 2565
+ASC_frg_water,-45.0,eq.min,fitted
