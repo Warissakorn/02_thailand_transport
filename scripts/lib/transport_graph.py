@@ -23,6 +23,22 @@ import os, csv as _csv
 DIJKSTRA_BATCH = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
 
 
+def edge_lookup_arrays(lk_key, lk_edge, nN, u, v):
+    """ค้น edge index ของคู่ (u,v) จากตารางเรียงแล้ว — ใช้ร่วมกับ lib.passign
+
+    u, v เป็น array ความยาวเท่ากัน (u = -1 หรือคู่ที่ไม่มี edge -> คืน -1)
+    """
+    u = np.asarray(u, dtype=np.int64)
+    v = np.asarray(v, dtype=np.int64)
+    if len(lk_key) == 0:
+        return np.full(u.shape, -1, dtype=np.int64)
+    key = u * np.int64(nN) + v
+    pos = np.searchsorted(lk_key, key)
+    pos_ok = np.minimum(pos, max(len(lk_key) - 1, 0))
+    hit = (lk_key[pos_ok] == key) & (u >= 0) & (v >= 0)
+    return np.where(hit, lk_edge[pos_ok], -1)
+
+
 class Graph:
     """กราฟเครือข่าย: node coords + edge arrays + csr (directed หรือไม่ก็ได้)"""
     def __init__(self, nxy, Eu, Ev, Ec, Eg, Eoneway=None):
@@ -37,16 +53,28 @@ class Graph:
         self._build_lookup(); self.rebuild_csr(self.Ec)
 
     def _build_lookup(self):
-        """edge_of[(u,v)] = edge index (เฉพาะทิศที่วิ่งได้; เก็บ edge ที่ cost ต่ำสุด)"""
-        self.edge_of = {}
-        for e in range(self.nE):
-            pairs = [(self.Eu[e], self.Ev[e])]
-            if not self.Eoneway[e]:
-                pairs.append((self.Ev[e], self.Eu[e]))
-            for a, b in pairs:
-                pe = self.edge_of.get((a, b))
-                if pe is None or self.Ec[e] < self.Ec[pe]:
-                    self.edge_of[(a, b)] = e
+        """ตาราง (u,v) -> edge index (เฉพาะทิศที่วิ่งได้; เก็บ edge ที่ cost ต่ำสุด)
+
+        เดิมเป็น dict คีย์ tuple หนึ่งรายการต่อ edge มีทิศ — กราฟอำเภอมี ~6.5 ล้านรายการ
+        กินหน่วยความจำระดับ GB และถูกสำเนาไปทุก worker เก็บเป็นคู่ numpy array
+        (คีย์ int64 เรียงแล้ว + edge index) แทน ใช้ ~50 MB และค้นแบบเวคเตอร์ได้
+        """
+        two = ~self.Eoneway.astype(bool)
+        u = np.concatenate([self.Eu, self.Ev[two]]).astype(np.int64)
+        v = np.concatenate([self.Ev, self.Eu[two]]).astype(np.int64)
+        e = np.concatenate([np.arange(self.nE), np.arange(self.nE)[two]])
+        c = np.concatenate([self.Ec, self.Ec[two]])
+        key = u * np.int64(self.nN) + v
+        order = np.lexsort((c, key))          # เรียงตาม key ก่อน แล้ว cost น้อยอยู่ต้น
+        key = key[order]; e = e[order]
+        first = np.ones(len(key), dtype=bool)
+        first[1:] = key[1:] != key[:-1]       # คีย์ซ้ำ -> เก็บตัว cost ต่ำสุด
+        self.lk_key = np.ascontiguousarray(key[first])
+        self.lk_edge = np.ascontiguousarray(e[first])
+
+    def edge_lookup(self, u, v):
+        """edge index ของแต่ละคู่ (u,v) แบบเวคเตอร์ ; -1 = ไม่มี edge ในทิศนั้น"""
+        return edge_lookup_arrays(self.lk_key, self.lk_edge, self.nN, u, v)
 
     def rebuild_csr(self, costs):
         """สร้าง csr ใหม่ด้วยต้นทุนที่กำหนด (ใช้ตอน equilibrium อัปเดตเวลา)"""
@@ -162,18 +190,18 @@ def assign_pairs(G, demand, batch=None, costs=None):
         srcs = origins[s0:s0+batch]
         dmat, pred = dijkstra(G.csr, directed=G.directed, indices=srcs,
                               return_predecessors=True)
+        nodes = np.arange(G.nN)
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
             acc = np.zeros(G.nN)
             for dn, v in demand[on].items(): acc[dn] += v
             if acc.sum() <= 0: continue
+            e_of = G.edge_lookup(ps, nodes)     # edge ที่เข้าสู่แต่ละ node บนต้นไม้เส้นทาง
             for node in np.argsort(ds)[::-1]:
                 if not np.isfinite(ds[node]): continue
-                p = ps[node]
-                if p < 0: continue
-                e = G.edge_of.get((p, node))
-                if e is not None:
-                    flow[e] += acc[node]; acc[p] += acc[node]
+                e = e_of[node]
+                if e >= 0:
+                    flow[e] += acc[node]; acc[ps[node]] += acc[node]
     return flow
 
 
@@ -188,9 +216,11 @@ def assign_multi(G, demands, batch=None):
         srcs = all_origins[s0:s0+batch]
         dmat, pred = dijkstra(G.csr, directed=G.directed, indices=srcs,
                               return_predecessors=True)
+        nodes = np.arange(G.nN)
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
             order = np.argsort(ds)[::-1]
+            e_of = G.edge_lookup(ps, nodes)      # หาครั้งเดียวต่อ origin ใช้ซ้ำได้ทุก K
             for ki in range(K):
                 dd = demands[ki].get(on)
                 if not dd: continue
@@ -199,11 +229,9 @@ def assign_multi(G, demands, batch=None):
                 if acc.sum() <= 0: continue
                 for node in order:
                     if not np.isfinite(ds[node]): continue
-                    p = ps[node]
-                    if p < 0: continue
-                    e = G.edge_of.get((p, node))
-                    if e is not None:
-                        flows[ki][e] += acc[node]; acc[p] += acc[node]
+                    e = e_of[node]
+                    if e >= 0:
+                        flows[ki][e] += acc[node]; acc[ps[node]] += acc[node]
     return flows
 
 

@@ -14,11 +14,13 @@ from scipy.sparse.csgraph import dijkstra
 _S = {}
 
 
-def init(Eu, Ev, Eoneway, edge_of, nN, nE, directed):
+def init(Eu, Ev, Eoneway, lk_key, lk_edge, nN, nE, directed):
     _S['Eu'] = np.asarray(Eu)
     _S['Ev'] = np.asarray(Ev)
     _S['two'] = ~np.asarray(Eoneway).astype(bool)   # edge ที่วิ่งได้สองทิศ
-    _S['edge_of'] = edge_of
+    # ตาราง (u,v)->edge แบบ array (แทน dict 6.5 ล้านคีย์ที่เคยส่งให้ worker ทุกตัว)
+    _S['lk_key'] = np.asarray(lk_key)
+    _S['lk_edge'] = np.asarray(lk_edge)
     _S['nN'] = int(nN)
     _S['nE'] = int(nE)
     _S['directed'] = bool(directed)
@@ -27,15 +29,14 @@ def init(Eu, Ev, Eoneway, edge_of, nN, nE, directed):
 def make_pool(nworkers, G):
     """สร้าง Pool ให้ประหยัดหน่วยความจำที่สุดเท่าที่ OS อนุญาต
 
-    ปัญหา: initargs ของ Pool ถูก pickle ส่งให้ worker ทุกตัว — G.edge_of เป็น dict
-    ~6.7 ล้านคีย์ (ราว 1 GB) กราฟระดับอำเภอจึงกินหน่วยความจำเป็นทวีคูณตามจำนวน worker
-    จนถูก OOM kill บนเครื่อง 16 GB
+    ปัญหา: initargs ของ Pool ถูก pickle ส่งให้ worker ทุกตัว ตารางค้น edge จึงถูกสำเนา
+    เป็นทวีคูณตามจำนวน worker (ตอนเป็น dict คือระดับ GB ต่อสำเนา)
 
     บน Linux (fork) จึงตั้งค่า global ในโปรเซสแม่ก่อน แล้ว fork เอา — worker เห็นข้อมูล
     เดียวกันแบบ copy-on-write ไม่ต้องสำเนา ส่วน Windows (spawn) ใช้ initializer ตามเดิม
     """
     import multiprocessing as _mp
-    args = (G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed)
+    args = (G.Eu, G.Ev, G.Eoneway, G.lk_key, G.lk_edge, G.nN, G.nE, G.directed)
     try:
         ctx = _mp.get_context("fork")
         init(*args)                      # ตั้งในแม่ -> ลูกได้มาแบบแชร์หน้า memory
@@ -43,6 +44,18 @@ def make_pool(nworkers, G):
     except (ValueError, AttributeError, OSError):
         ctx = _mp.get_context()
         return ctx.Pool(nworkers, initializer=init, initargs=args), ctx.get_start_method()
+
+
+def _edge_lookup(u, v):
+    """ค้น edge index ของคู่ (u,v) จากตารางเรียงแล้วใน _S (เวคเตอร์; -1 = ไม่มี)"""
+    u = np.asarray(u, dtype=np.int64); v = np.asarray(v, dtype=np.int64)
+    lk_key = _S['lk_key']; lk_edge = _S['lk_edge']
+    if len(lk_key) == 0:
+        return np.full(u.shape, -1, dtype=np.int64)
+    key = u * np.int64(_S['nN']) + v
+    pos = np.minimum(np.searchsorted(lk_key, key), max(len(lk_key) - 1, 0))
+    hit = (lk_key[pos] == key) & (u >= 0) & (v >= 0)
+    return np.where(hit, lk_edge[pos], -1)
 
 
 def _csr(costs):
@@ -58,7 +71,8 @@ def _work(task):
     (จำกัดเฉพาะ origins ในชิ้นนี้) -> คืน list ของ K flow arrays (nE,)"""
     costs, origins, dem_list = task
     csr = _csr(np.asarray(costs, dtype=float))
-    nE = _S['nE']; nN = _S['nN']; edge_of = _S['edge_of']; directed = _S['directed']
+    nE = _S['nE']; nN = _S['nN']; directed = _S['directed']
+    nodes = np.arange(nN)
     K = len(dem_list)
     flows = [np.zeros(nE) for _ in range(K)]
     # batch dijkstra ภายใน worker (dmat+pred = B x nN x 12 ไบต์ ต่อ worker)
@@ -70,6 +84,7 @@ def _work(task):
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
             order = np.argsort(ds)[::-1]
+            e_of = _edge_lookup(ps, nodes)
             for ki in range(K):
                 dd = dem_list[ki].get(on)
                 if not dd:
@@ -82,13 +97,10 @@ def _work(task):
                 for node in order:
                     if not np.isfinite(ds[node]):
                         continue
-                    p = ps[node]
-                    if p < 0:
-                        continue
-                    e = edge_of.get((p, node))
-                    if e is not None:
+                    e = e_of[node]
+                    if e >= 0:
                         flows[ki][e] += acc[node]
-                        acc[p] += acc[node]
+                        acc[ps[node]] += acc[node]
     return flows
 
 

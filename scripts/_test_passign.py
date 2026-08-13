@@ -63,7 +63,7 @@ def main():
     log("serial done: totals=%s" % [round(f.sum(), 3) for f in serial])
 
     pool = mp.Pool(4, initializer=passign.init,
-                   initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
+                   initargs=(G.Eu, G.Ev, G.Eoneway, G.lk_key, G.lk_edge, G.nN, G.nE, G.directed))
     par = passign.run_assign(pool, 4, G.Ec, dems)
     pool.close(); pool.join()
     log("parallel done: totals=%s" % [round(f.sum(), 3) for f in par])
