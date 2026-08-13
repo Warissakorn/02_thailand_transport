@@ -10,7 +10,14 @@ out: config/calibrated_params.py, model/5_calibration/{calibration_search.csv,
 """
 import os, sys, csv, math, heapq, traceback
 import numpy as np
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ (กัน worker spawn มา truncate log)
@@ -28,7 +35,7 @@ ASC_FIT_ITER = 30
 def read_targets():
     """เป้า 2565: pax interzonal shares (car,bus,rail,air) + freight (truck,rail,water)"""
     tp = {}
-    rows = list(csv.DictReader(open(B + r"\data\calibration\targets\intercity_pt_share_otp6503.csv", encoding="utf-8-sig")))
+    rows = list(csv.DictReader(open(B + r"\inputs\calibration\targets\intercity_pt_share_otp6503.csv", encoding="utf-8-sig")))
     v = {'car': 0.0, 'bus': 0.0, 'rail': 0.0, 'air': 0.0}
     for r in rows:
         if r['ปี'] != '2565': continue
@@ -39,7 +46,7 @@ def read_targets():
         elif m == 'เครื่องบิน': v['air'] += val
     s = sum(v.values()); tp = {k: x/s for k, x in v.items()}
     tf = {}
-    rows = list(csv.DictReader(open(B + r"\data\calibration\targets\freight_by_mode_2560_2565.csv", encoding="utf-8-sig")))
+    rows = list(csv.DictReader(open(B + r"\inputs\calibration\targets\freight_by_mode_2560_2565.csv", encoding="utf-8-sig")))
     w = {}
     for r in rows:
         if r['ปี'] != '2565': continue
@@ -59,7 +66,8 @@ def part_a():
     log("graph: nodes=%d edges=%d oneway=%.1f%%" % (G.nN, G.nE, 100*G.Eoneway.mean()))
     import multiprocessing as _mp
     import lib.passign as passign
-    NW = 6
+    from lib import scenario as _sc
+    NW = _workers(_sc)
     pool = _mp.Pool(NW, initializer=passign.init,
                     initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
     log("parallel pool: %d workers" % NW)
@@ -165,6 +173,8 @@ def small_allpairs(edges):
 def part_b(target_pax, target_frg):
     from qgis.core import QgsVectorLayer
     import model_params as mp
+    from lib import scenario as sc
+    sc.apply(mp)
     def read_matrix(path, vcol):
         d = {}
         for r in csv.DictReader(open(path, encoding="utf-8")):
@@ -311,6 +321,18 @@ def part_b(target_pax, target_frg):
                         target_frg.get(m, ""), round(sh_frg_all.get(m, 0), 5)])
     return asc_p, asc_f, fac_pax, fac_frg, sh_pax_all, sh_frg_all
 
+def _workers(sc):
+    """จำนวน process ขนาน: scenario run.workers > จำนวนคอร์ (จำกัดไว้ที่ 4)
+
+    worker แต่ละตัวได้สำเนากราฟผ่าน pickle เต็ม ๆ ตั้งค่าสูงเกินจำนวน RAM
+    ของเครื่อง (เช่น runner ฟรีของ GitHub) จะโดน OOM kill เงียบ ๆ ระหว่างสร้าง pool
+    """
+    n = int(sc.get("workers", 0) or 0)
+    if n <= 0:
+        n = min(os.cpu_count() or 2, 4)
+    return max(n, 1)
+
+
 def main():
     from qgis.core import QgsApplication
     app = QgsApplication([], False); app.initQgis()
@@ -328,6 +350,8 @@ def main():
 
     # trip rate scaling: k จาก part A ใช้ fac เดิม (1.072/1.236) -> แปลงเป็น rate ใหม่ด้วย fac ใหม่
     import model_params as mp
+    from lib import scenario as sc
+    sc.apply(mp)
     k_p_flow = sp['k']            # scale ที่ต้องคูณ flow (raw trips) ให้ตรง obs pax_pcu
     k_f_flow = sf['k']
     rate_pax = mp.TRIP_RATE_PAX * k_p_flow / fac_pax
@@ -355,11 +379,11 @@ def main():
         fh.write('SHARE_PAX = %r  # สัดส่วนโหมดผู้โดยสาร (ทุกทริป)\n' % {k: round(v, 5) for k, v in sh_p.items()})
         fh.write('SHARE_FRG = %r\n' % {k: round(v, 5) for k, v in sh_f.items()})
     log("wrote config/calibrated_params.py")
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if __name__ == '__main__':
     import multiprocessing as _mpmain
     _mpmain.freeze_support()   # จำเป็นบน Windows (spawn)
     LOG = open(B + r"\output\_13.log", "w", encoding="utf-8")
     try: main()
-    except Exception: log("ERR", traceback.format_exc())
+    except Exception: log("ERR", traceback.format_exc()); raise

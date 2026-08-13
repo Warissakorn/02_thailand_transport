@@ -8,8 +8,17 @@ out: data/zones_taz/district_taz.gpkg, district_centroids.gpkg ; model/1_trip_ge
 """
 import os, sys, csv, traceback, numpy as np
 from osgeo import gdal, ogr
-sys.path.insert(0, r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport\config")
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
+from lib import scenario as sc
+sc.apply(mp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
 import processing
 from processing.core.Processing import Processing
 from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, QgsGeometry, QgsPointXY,
@@ -17,7 +26,7 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsProject, QgsCoordinateTransform, QgsFeatureRequest)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+B = _ROOT
 LOG = open(B + r"\output\_d8a.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 BACKBONE = ('motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link')
@@ -96,11 +105,11 @@ def main():
     def cnt(points):
         res = processing.run("native:countpointsinpolygon", {'POLYGONS': rep, 'POINTS': points, 'FIELD': 'NP', 'OUTPUT': 'memory:'})['OUTPUT']
         return {f['district_id']: (f['NP'] or 0) for f in res.getFeatures()}
-    spoly = processing.run("native:fixgeometries", {'INPUT': QgsVectorLayer(B + r"\data\landuse\schools_poly.gpkg|layername=schools_poly", "sp", "ogr"), 'OUTPUT': 'memory:'})['OUTPUT']
+    spoly = processing.run("native:fixgeometries", {'INPUT': QgsVectorLayer(B + r"\inputs\landuse\schools_poly.gpkg|layername=schools_poly", "sp", "ogr"), 'OUTPUT': 'memory:'})['OUTPUT']
     scen = processing.run("native:centroids", {'INPUT': spoly, 'OUTPUT': 'memory:'})['OUTPUT']
-    spts = QgsVectorLayer(B + r"\data\landuse\schools_pts.gpkg|layername=schools_pts", "spt", "ogr")
+    spts = QgsVectorLayer(B + r"\inputs\landuse\schools_pts.gpkg|layername=schools_pts", "spt", "ogr")
     sc1 = cnt(scen); sc2 = cnt(spts); sch = {d: sc1.get(d, 0)+sc2.get(d, 0) for d in range(1, NA)}
-    ind_src = processing.run("native:fixgeometries", {'INPUT': QgsVectorLayer(B + r"\data\landuse\industrial.gpkg|layername=industrial", "ind", "ogr"), 'OUTPUT': 'memory:'})['OUTPUT']
+    ind_src = processing.run("native:fixgeometries", {'INPUT': QgsVectorLayer(B + r"\inputs\landuse\industrial.gpkg|layername=industrial", "ind", "ogr"), 'OUTPUT': 'memory:'})['OUTPUT']
     ind_src = processing.run("native:reprojectlayer", {'INPUT': ind_src, 'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:32647'), 'OUTPUT': 'memory:'})['OUTPUT']
     inter = processing.run("native:intersection", {'INPUT': ind_src, 'OVERLAY': rep, 'OUTPUT': 'memory:'})['OUTPUT']
     ind = {d: 0.0 for d in range(1, NA)}
@@ -121,7 +130,7 @@ def main():
     for c in [tmp, B + r"\output\_dzone.tif"]:
         try: os.remove(c)
         except: pass
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try: main()
-except Exception: log("ERR", traceback.format_exc())
+except Exception: log("ERR", traceback.format_exc()); raise

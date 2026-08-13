@@ -12,7 +12,14 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsVectorFileWriter, QgsCoordinateTransformContext)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"; M = B + r"\model"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT; M = B + r"\model"
 LOG = open(B + r"\output\_11.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -149,7 +156,7 @@ def main():
     grand = sum(f['vol_pcu'] for f in tot.getFeatures())
     log("PAX total=%.0f FRG total=%.0f" % (pax_t, frg_t))
     log("VERIFY: sum(all components)=%.0f | total_prov=%.0f | diff=%.4f%%" % (total.sum(), grand, 100*abs(total.sum()-grand)/grand))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try: main()
-except Exception: log("ERR", traceback.format_exc())
+except Exception: log("ERR", traceback.format_exc()); raise

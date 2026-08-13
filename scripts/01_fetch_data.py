@@ -24,17 +24,17 @@ SOURCES = {
              os.path.join(DIRS["raw"], "tha_pop_2020_100m.tif")),
     # AADT ปริมาณจราจรบนทางหลวง ปี 2565 (กรมทางหลวง / data.go.th) — แยกชนิดรถ + จังหวัด + สาย/กม.
     "aadt": ("https://data.go.th/dataset/0ed9305b-0752-4189-bd89-0dfa96e6f992/resource/6cfd40db-807d-4169-9b0d-879bd94b88e3/download/65.csv",
-             os.path.join(ROOT, "data", "calibration", "aadt_2565.csv")),
+             os.path.join(ROOT, "inputs", "calibration", "aadt_2565.csv")),
     # ---- เป้า calibration (สถิติทางการ, เข้าถึง 2026-07-02) ----
     # ปริมาณการขนส่งสินค้าภายในประเทศ จำแนกตามรูปแบบ 2560-2565 (สนข./กระทรวงคมนาคม)
     "target_freight": ("https://otp.gdcatalog.go.th/dataset/8d7f86ef-a6e2-4dcd-b227-02b87fedce0c/resource/8f792f68-d194-479d-9f95-ccfbc934dbe8/download/dataset_12_03-2560-2565.csv",
-             os.path.join(ROOT, "data", "calibration", "targets", "freight_by_mode_2560_2565.csv")),
+             os.path.join(ROOT, "inputs", "calibration", "targets", "freight_by_mode_2560_2565.csv")),
     # ปริมาณผู้โดยสารขนส่งสาธารณะภายในประเทศ รายโหมด (กระทรวงคมนาคม)
     "target_pax": ("https://datagov.mot.go.th/dataset/8a3b54cd-791e-461f-b3ec-50581c92ab52/resource/e0a4e2c5-17ad-4f09-a6e2-619f20587a85/download/domestic-passenger.csv",
-             os.path.join(ROOT, "data", "calibration", "targets", "passenger_domestic_by_mode.csv")),
+             os.path.join(ROOT, "inputs", "calibration", "targets", "passenger_domestic_by_mode.csv")),
     # สัดส่วนการเดินทางระหว่างเมืองรายโหมด (สนข. แบบจำลอง NAM ปีฐาน 2560 + รฟท./ทอท./กทย.)
     "target_intercity": ("https://otp.gdcatalog.go.th/dataset/12eb6ec3-659a-42d0-b5e4-b94e9ab660f4/resource/af3886c8-eafa-430a-aaed-1af32f2c1eb1/download/otp_65_03.csv",
-             os.path.join(ROOT, "data", "calibration", "targets", "intercity_pt_share_otp6503.csv")),
+             os.path.join(ROOT, "inputs", "calibration", "targets", "intercity_pt_share_otp6503.csv")),
 }
 
 def dl(url, dst):

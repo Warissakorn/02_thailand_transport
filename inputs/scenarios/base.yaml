@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────
+# Scenario "base" — ชุดสมมติฐานหลักของแบบจำลอง
+#
+# แก้ไฟล์นี้แล้ว commit + push -> GitHub Actions รันโมเดลใหม่ให้อัตโนมัติ
+# และอัปเดตหน้าเว็บผลลัพธ์ (GitHub Pages) โดยไม่ต้องแตะโค้ดในสคริปต์
+#
+# ลบ key ไหนทิ้ง = ใช้ค่าตั้งต้นของ key นั้นตามเดิม
+# อยากลองสมมติฐานอื่นโดยไม่ทับของเดิม: คัดลอกไฟล์นี้เป็น inputs/scenarios/<ชื่อ>.yaml
+# แล้วกดรัน workflow โดยเลือก scenario = <ชื่อ>
+#
+# 3 หมวด: model = ทับ config/model_params.py, calibrated = ทับ
+# config/calibrated_params.py, run = ค่าที่สคริปต์ assignment อ่านตรง
+# (ดูคำอธิบายทุก key ที่ docs/PIPELINE_IO.md)
+# ─────────────────────────────────────────────────────────────────────
+
+model:
+  # ── ขั้น 3: Trip Generation (ค่าดิบก่อน calibrate) ──
+  trip_rate_pax: 2.0        # เที่ยว-ยานพาหนะ/คน/วัน
+  freight_factor: 0.10      # เที่ยวสินค้า = ค่านี้ x เที่ยวผู้โดยสารรวม
+  # ── ขั้น 4: Distribution (gravity, f(c) = exp(-beta x cost_min)) ──
+  gravity_beta_pax: 0.008
+  gravity_beta_frg: 0.005
+  gravity_max_iter: 300     # รอบ Furness balancing สูงสุด
+  gravity_tol: 0.001
+  # ── ขั้น 5: Mode Choice (multinomial logit) ──
+  logit_theta: 0.020        # ความไวต่อต้นทุนรวม (1/นาที)
+  vot_thb_per_min: 3.0      # value of time = 180 บาท/ชม.
+  # ── ขั้น 7: Calibration ──
+  aadt_year: 2565           # ปีข้อมูล AADT ที่ใช้เทียบ (พ.ศ.)
+  geh_target: 5.0           # เกณฑ์ GEH ที่ถือว่าผ่าน
+  geh_pass_pct: 0.85        # สัดส่วนสถานีที่ต้องผ่านเกณฑ์
+
+calibrated:
+  # ค่าเหล่านี้ปกติสร้างโดย 13_calibrate_params.py — ใส่ที่นี่เมื่อต้องการ "ตรึง" ค่า
+  # หรือทดลองด้วยมือ (ค่าที่ใส่จะทับผลจากขั้น 13 ตอนรันขั้น 14)
+  trip_rate_pax: 0.0792     # หลัง scale เข้ากับ AADT
+  freight_factor: 0.1709
+  beta_pax: 0.0250          # ยิ่งมาก = เดินทางระยะสั้นมากขึ้น
+  beta_frg: 0.0080
+
+run:
+  k_factor: 0.09            # สัดส่วนปริมาณชั่วโมงเร่งด่วนต่อปริมาณรายวัน
+  eq_iter: 8                # รอบ MSA equilibrium ต่อ component
+                            # (ลดเหลือ 3-4 ถ้ารันบน runner ฟรีแล้วเวลาไม่พอ)
+  workers: 2                # จำนวน process ขนานของขั้น 13/14
+                            # 0 = ใช้จำนวนคอร์ (สูงสุด 4); เครื่องแรง ๆ ตั้ง 6-8 ได้
+                            # worker แต่ละตัวถือสำเนากราฟของตัวเอง -> ตั้งสูงเกิน RAM = ถูก kill

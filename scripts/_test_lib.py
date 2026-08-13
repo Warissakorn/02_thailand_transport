@@ -1,5 +1,12 @@
 import sys, traceback, numpy as np
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT
 sys.path.insert(0, B + r"\scripts")
 L = open(B + r"\output\_tl.log", "w", encoding="utf-8")
 def log(*a): L.write(" ".join(str(x) for x in a)+"\n"); L.flush()
@@ -18,6 +25,6 @@ try:
     fin = off[np.isfinite(off)]
     log("OD 77x77 directed: finite=%.3f min/mean/max=%.0f/%.0f/%.0f" % (
         np.isfinite(off).mean(), fin.min(), fin.mean(), fin.max()))
-    app.exitQgis(); log("DONE")
-except Exception: log("ERR", traceback.format_exc())
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
+except Exception: log("ERR", traceback.format_exc()); raise
 L.close()

@@ -6,11 +6,20 @@ P_m = exp(-θ·GC_m)/Σ ; โหมดที่ใช้ได้เท่าน
 out: model/3_mode_choice/mode_split_{passenger,freight}.csv + mode_share_summary.csv
 """
 import os, csv, sys, math, heapq, traceback
-sys.path.insert(0, r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport\config")
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
+from lib import scenario as sc
+sc.apply(mp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
 from qgis.core import QgsApplication, QgsVectorLayer
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+B = _ROOT
 M = B + r"\model"
 LOG = open(B + r"\output\_mc.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -135,9 +144,9 @@ def main():
         with open(M + r"\3_mode_choice\mode_share_%s.csv" % stream, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh); w.writerow(["mode", "trips", "share_pct"])
             for m, v in sorted(totals.items(), key=lambda x: -x[1]): w.writerow([m, round(v), round(100*v/tot, 2)])
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try:
     main()
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

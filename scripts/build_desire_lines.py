@@ -11,7 +11,14 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
 from qgis.PyQt.QtCore import QVariant, QSize
 from qgis.PyQt.QtGui import QColor, QImage, QPainter
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT
 LOG = open(B + r"\output\_dl.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -68,6 +75,6 @@ try:
         p = QPainter(img); job = QgsMapRendererCustomPainterJob(ms, p); job.renderSynchronously(); p.end()
         img.save(B + r"\output\desire_%s.png" % stream)
         log("%s: %d OD pairs, top120 max trips=%s -> rendered" % (stream, len(items), format(int(mx), ',')))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

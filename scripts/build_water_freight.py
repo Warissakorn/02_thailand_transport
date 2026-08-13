@@ -10,7 +10,14 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsCoordinateTransformContext, QgsProject, QgsCoordinateTransform)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT
 LOG = open(B + r"\output\_wf.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 SHIP_KMH = 25.0; ACCESS_KMH = 50.0; DETOUR = 1.3
@@ -55,6 +62,7 @@ try:
         f.setAttributes([a,b,round(d,1),round(d/SHIP_KMH*60,1)]); lp.addFeature(f)
     for lyr,name in [(nodes,"seaport_nodes"),(links,"water_freight_links")]:
         out=B+r"\data\multimodal\%s.gpkg"%name
+        os.makedirs(os.path.dirname(str(out)), exist_ok=True)
         if os.path.exists(out): os.remove(out)
         o=QgsVectorFileWriter.SaveVectorOptions(); o.driverName="GPKG"; o.layerName=name
         QgsVectorFileWriter.writeAsVectorFormatV3(lyr,out,QgsCoordinateTransformContext(),o)
@@ -79,6 +87,6 @@ try:
     o=QgsVectorFileWriter.SaveVectorOptions(); o.driverName="GPKG"; o.layerName="access_seafreight"
     QgsVectorFileWriter.writeAsVectorFormatV3(acc,out,QgsCoordinateTransformContext(),o)
     log("access_seafreight: 77 | sample edges dist:", [(a,b,round(gc_km((PORTS[a][1],PORTS[a][2]),(PORTS[b][1],PORTS[b][2])))) for a,b in EDGES[:4]])
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

@@ -5,11 +5,20 @@ deterrence f(c)=exp(-beta*c) ; intrazonal cost = 0.5 * nearest interzonal
 out: model/2_trip_distribution/od_{passenger,freight}.csv
 """
 import os, csv, sys, math, traceback
-sys.path.insert(0, r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport\config")
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
+from lib import scenario as sc
+sc.apply(mp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
 from qgis.core import QgsApplication, QgsVectorLayer
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+B = _ROOT
 LOG = open(B + r"\output\_grav.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -77,9 +86,9 @@ def main():
                     w.writerow([zi, zj, round(v, 2)])
         log("%s: iters=%d total_trips=%.0f intrazonal=%.1f%% beta=%.3f -> %s" % (
             stream, iters, tot, 100*intra/tot if tot else 0, beta, os.path.basename(out)))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try:
     main()
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

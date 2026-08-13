@@ -1,16 +1,23 @@
 # -*- coding: utf-8 -*-
 """ขั้น 2: เตรียมโครงข่ายถนน — รันใน Python console ของ QGIS (มี processing + GDAL)
-- อ่าน data/network/roads_raw_4326.gpkg (สกัดจาก pbf ด้วย ogr2ogr)
+- อ่าน data/network/roads_raw_4326.gpkg (สร้างโดย 02a_extract_osm.py)
 - เพิ่ม speed_kmh / travel_time_min / capacity_pcph ตามชั้นถนน (ใช้ maxspeed ถ้ามี)
 - reproject -> EPSG:32647 -> data/network/network_clean.gpkg
-TAZ (จังหวัด) + centroid สร้างแล้วใน data/zones_taz/ (ดู 02 ในแชต)
+TAZ (จังหวัด) + ประชากรรายโซน สร้างโดย 02b_build_taz.py -> data/zones_taz/
 """
 import os, processing
 from qgis.core import (QgsVectorLayer, QgsField, QgsVectorFileWriter,
                        QgsCoordinateReferenceSystem, QgsCoordinateTransformContext)
 from qgis.PyQt.QtCore import QVariant
 
-BASE = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+BASE = _ROOT
 SRC  = BASE + r"\data\network\roads_raw_4326.gpkg"
 OUT  = BASE + r"\data\network\network_clean.gpkg"
 
@@ -33,6 +40,12 @@ def parse_speed(maxspeed, hw):
     return DEFAULT.get(hw,(40,600))[0]
 
 def main():
+    # เดิมสคริปต์นี้ถูกรันใน Python console ของ QGIS ซึ่ง init ให้อยู่แล้ว
+    # รันเป็นสคริปต์เดี่ยว (CI/Colab) ต้อง init เอง ไม่งั้น processing หา algorithm ไม่เจอ
+    from qgis.core import QgsApplication
+    from processing.core.Processing import Processing
+    app = QgsApplication([], False); app.initQgis(); Processing.initialize()
+
     roads = QgsVectorLayer(SRC, "roads_raw", "ogr")
     assert roads.isValid(), "roads_raw not found/valid"
     print("raw roads:", roads.featureCount())
@@ -68,6 +81,8 @@ def main():
     opts=QgsVectorFileWriter.SaveVectorOptions(); opts.driverName="GPKG"; opts.layerName="network_clean"
     QgsVectorFileWriter.writeAsVectorFormatV3(rep,OUT,QgsCoordinateTransformContext(),opts)
     print("wrote network_clean ->",OUT, "| feats:",rep.featureCount())
+    print("DONE")
+    hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if __name__=="__main__" or True:
     main()

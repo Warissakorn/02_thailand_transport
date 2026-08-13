@@ -8,7 +8,14 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsPointXY, QgsVectorFileWriter, QgsCoordinateReferenceSystem, QgsCoordinateTransformContext)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+B = _ROOT
 LOG = open(B + r"\output\_air.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -19,14 +26,16 @@ def gc_km(a, b):
 
 try:
     app=QgsApplication([],False); app.initQgis()
-    md=B+r"\data\multimodal"
+    src=B+r"\inputs\multimodal"      # ข้อมูลนำเข้า (OpenFlights)
+    md=B+r"\data\multimodal"         # ผลลัพธ์ที่สร้างเอง (air_nodes/air_links)
+    os.makedirs(str(md), exist_ok=True)
     TH={}
-    for row in csv.reader(open(md+r"\openflights_airports.dat",encoding="utf-8")):
+    for row in csv.reader(open(src+r"\openflights_airports.dat",encoding="utf-8")):
         if len(row)>7 and row[3]=="Thailand" and row[4] and row[4]!="\\N":
             try: TH[row[4]]=(row[1],float(row[7]),float(row[6]))  # IATA->(name,lon,lat)
             except: pass
     pairs=set()
-    for row in csv.reader(open(md+r"\openflights_routes.dat",encoding="utf-8")):
+    for row in csv.reader(open(src+r"\openflights_routes.dat",encoding="utf-8")):
         if len(row)>4 and row[2] in TH and row[4] in TH and row[2]!=row[4]:
             pairs.add(tuple(sorted((row[2],row[4]))))
     log("airports:",len(TH),"pairs:",len(pairs))
@@ -55,6 +64,6 @@ try:
         o=QgsVectorFileWriter.SaveVectorOptions(); o.driverName="GPKG"; o.layerName=name
         QgsVectorFileWriter.writeAsVectorFormatV3(lyr,out,QgsCoordinateTransformContext(),o)
         log("wrote",name,lyr.featureCount())
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
     log("ERR",traceback.format_exc())

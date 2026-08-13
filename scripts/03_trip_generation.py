@@ -21,8 +21,19 @@ import os, processing
 from qgis.core import *
 from qgis.PyQt.QtCore import QVariant
 
-BASE=r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
-RP=2.0; FF=0.10
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT, hard_exit
+BASE=_ROOT
+_sys.path.insert(0, _os.path.join(str(BASE), "config"))
+import model_params as mp
+from lib import scenario as sc
+sc.apply(mp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
+RP=mp.TRIP_RATE_PAX; FF=mp.FREIGHT_FACTOR
 
 def cnt_in_provinces(prov, pts):
     """นับจุดต่อจังหวัด -> dict GID_1->count (ใช้ spatial index)"""
@@ -32,21 +43,26 @@ def cnt_in_provinces(prov, pts):
     return {f['GID_1']:(f['NUMPOINTS'] or 0) for f in res.getFeatures()}
 
 def main():
+    # เดิมรันใน Python console ของ QGIS; รันเป็นสคริปต์เดี่ยวต้อง init เอง
+    from qgis.core import QgsApplication
+    from processing.core.Processing import Processing
+    app = QgsApplication([], False); app.initQgis(); Processing.initialize()
+
     prov4326=QgsVectorLayer(BASE+r"\data\boundaries\gadm41_THA.gpkg|layername=ADM_ADM_1","p","ogr")
     taz=QgsVectorLayer(BASE+r"\data\zones_taz\taz_provinces.gpkg|layername=taz_provinces","taz","ogr")
     popl=QgsVectorLayer(BASE+r"\data\zones_taz\zone_population.gpkg|layername=zone_population","pp","ogr")
     pop={f['GID_1']:(f['pop_sum'] or 0) for f in popl.getFeatures()}
 
     # schools: polygons -> centroids, + points ; รวมนับต่อจังหวัด
-    spoly=QgsVectorLayer(BASE+r"\data\landuse\schools_poly.gpkg|layername=schools_poly","sp","ogr")
+    spoly=QgsVectorLayer(BASE+r"\inputs\landuse\schools_poly.gpkg|layername=schools_poly","sp","ogr")
     spoly=processing.run("native:fixgeometries",{'INPUT':spoly,'OUTPUT':'memory:'})['OUTPUT']
     scen=processing.run("native:centroids",{'INPUT':spoly,'OUTPUT':'memory:'})['OUTPUT']
-    spts=QgsVectorLayer(BASE+r"\data\landuse\schools_pts.gpkg|layername=schools_pts","spt","ogr")
+    spts=QgsVectorLayer(BASE+r"\inputs\landuse\schools_pts.gpkg|layername=schools_pts","spt","ogr")
     sc1=cnt_in_provinces(prov4326,scen); sc2=cnt_in_provinces(prov4326,spts)
     sch={k:sc1.get(k,0)+sc2.get(k,0) for k in pop}
 
     # industrial area km2 ต่อจังหวัด: intersection แล้วรวมพื้นที่ (คำนวณใน 32647)
-    ind_src=QgsVectorLayer(BASE+r"\data\landuse\industrial.gpkg|layername=industrial","ind","ogr")
+    ind_src=QgsVectorLayer(BASE+r"\inputs\landuse\industrial.gpkg|layername=industrial","ind","ogr")
     ind_src=processing.run("native:fixgeometries",{'INPUT':ind_src,'OUTPUT':'memory:'})['OUTPUT']
     ind32=processing.run("native:reprojectlayer",{'INPUT':ind_src,'TARGET_CRS':QgsCoordinateReferenceSystem('EPSG:32647'),'OUTPUT':'memory:'})['OUTPUT']
     inter=processing.run("native:intersection",{'INPUT':ind32,'OVERLAY':taz,'OUTPUT':'memory:'})['OUTPUT']
@@ -86,5 +102,7 @@ def main():
         QgsVectorFileWriter.writeAsVectorFormatV3(mem,out,QgsCoordinateTransformContext(),o)
         print("wrote",os.path.basename(out))
     print("totals: pop=%.0f schools=%d ind_km2=%.1f | P_pax=%.0f T_freight=%.0f"%(Spop,sum(sch.values()),Sind,SP_pax,T_F))
+    print("DONE")
+    hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if True: main()
