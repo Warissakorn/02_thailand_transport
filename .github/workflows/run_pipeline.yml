@@ -42,6 +42,8 @@ env:
   TT_ROOT: ${{ github.workspace }}
   TT_SCENARIO: ${{ inputs.scenario || 'base' }}
   STAGES: ${{ inputs.stages || 'full' }}
+  # runner ไม่มีจอ — Qt ที่มากับ QGIS ต้องเรนเดอร์แบบ offscreen ไม่งั้น abort
+  QT_QPA_PLATFORM: offscreen
 
 jobs:
   pipeline:

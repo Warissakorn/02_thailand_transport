@@ -40,6 +40,12 @@ def _discover_root():
 
 ROOT = ProjPath(_discover_root())
 
+# QGIS ลาก Qt มาด้วยเสมอ ถ้าไม่มีจอ (เซิร์ฟเวอร์/Actions/Colab) Qt จะพยายามต่อ "xcb"
+# แล้ว abort ทั้งโปรเซส — บังคับโหมด offscreen ให้ตั้งแต่ก่อนสร้าง QgsApplication
+# (บน Windows/เครื่องที่มี DISPLAY ไม่แตะ เพื่อให้ qpy.bat ทำงานเหมือนเดิม)
+if os.name != "nt" and not os.environ.get("DISPLAY"):
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 # โฟลเดอร์มาตรฐานตามสัญญา Input -> Process -> Output (ดู docs/PIPELINE_IO.md)
 INPUTS  = ROOT + r"\inputs"          # ข้อมูลนำเข้าที่คนแก้ + commit
 CONFIG  = ROOT + r"\config"          # พารามิเตอร์ระดับโค้ด
