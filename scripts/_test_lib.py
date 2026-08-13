@@ -5,7 +5,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 sys.path.insert(0, B + r"\scripts")
 L = open(B + r"\output\_tl.log", "w", encoding="utf-8")
@@ -25,6 +25,6 @@ try:
     fin = off[np.isfinite(off)]
     log("OD 77x77 directed: finite=%.3f min/mean/max=%.0f/%.0f/%.0f" % (
         np.isfinite(off).mean(), fin.min(), fin.mean(), fin.max()))
-    app.exitQgis(); log("DONE")
-except Exception: log("ERR", traceback.format_exc())
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
+except Exception: log("ERR", traceback.format_exc()); raise
 L.close()

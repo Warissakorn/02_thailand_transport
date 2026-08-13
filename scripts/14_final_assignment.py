@@ -19,7 +19,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
@@ -202,11 +202,11 @@ def main():
     open(M + r"\5_calibration\calibration_report_final.txt", "w", encoding="utf-8").write(rep)
     log(rep)
     pool.close(); pool.join()
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if __name__ == '__main__':
     import multiprocessing as _mpmain
     _mpmain.freeze_support()   # จำเป็นบน Windows (spawn)
     LOG = open(B + r"\output\_14.log", "w", encoding="utf-8")
     try: main()
-    except Exception: log("ERR", traceback.format_exc())
+    except Exception: log("ERR", traceback.format_exc()); raise

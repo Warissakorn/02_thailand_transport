@@ -15,7 +15,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT  # placeholder fixed below
 B = _ROOT; M = B + r"\model"
 LOG = open(B + r"\output\_md.log", "w", encoding="utf-8")
@@ -55,7 +55,7 @@ def main():
             log("%s: %d OD pairs, total trips=%.0f" % (outname, lyr.featureCount(), sum(v for v in agg.values())))
         except Exception as e:
             log("%s SAVE FAIL: %s" % (outname, str(e)[:50]))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try: main()
-except Exception: log("ERR", traceback.format_exc())
+except Exception: log("ERR", traceback.format_exc()); raise

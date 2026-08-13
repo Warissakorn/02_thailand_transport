@@ -15,7 +15,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_water.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -42,6 +42,6 @@ try:
     o = QgsVectorFileWriter.SaveVectorOptions(); o.driverName = "GPKG"; o.layerName = "water_clean"
     QgsVectorFileWriter.writeAsVectorFormatV3(rep, out, QgsCoordinateTransformContext(), o)
     log("water_clean:", rep.featureCount(), "| total km:", round(sum(ft['length_m'] for ft in rep.getFeatures())/1000))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

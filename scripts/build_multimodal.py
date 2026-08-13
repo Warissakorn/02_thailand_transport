@@ -18,7 +18,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_mm.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -77,6 +77,6 @@ try:
     img=QImage(QSize(850,650),QImage.Format_ARGB32); img.fill(QColor('white'))
     pt=QPainter(img); job=QgsMapRendererCustomPainterJob(ms,pt); job.renderSynchronously(); pt.end()
     img.save(B+r"\output\multimodal_overview.png"); log("rendered overview")
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
     log("ERR",traceback.format_exc())

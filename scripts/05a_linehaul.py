@@ -14,7 +14,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_lh.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -63,6 +63,6 @@ try:
     app = QgsApplication([], False); app.initQgis()
     linehaul(r"data\network\rail_clean.gpkg", "rail_clean", r"data\zones_taz\access_rail.gpkg", "access_rail", "rail")
     linehaul(r"data\network\water_clean.gpkg", "water_clean", r"data\zones_taz\access_water.gpkg", "access_water", "water")
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

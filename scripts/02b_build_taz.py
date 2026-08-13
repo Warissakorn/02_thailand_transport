@@ -16,7 +16,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.paths import ROOT as B, ensure          # noqa: E402
+from lib.paths import ROOT as B, ensure, hard_exit   # noqa: E402
 
 GADM = B + r"\data\boundaries\gadm41_THA.gpkg"
 POP = B + r"\data\raw\tha_pop_2020_100m.tif"
@@ -92,8 +92,10 @@ def main():
 
     tot = sum((f['pop_sum'] or 0) for f in zs.getFeatures())
     log("ประชากรรวม (WorldPop 2020): %.0f คน" % tot)
-    app.exitQgis()
-    return 0
+    log("DONE")
+    # ไม่เรียก app.exitQgis(): teardown ของ Qt/GDAL ทำให้ segfault บนคอนเทนเนอร์
+    # ทั้งที่งานเสร็จครบแล้ว -> ปิดโปรเซสตรง ๆ ด้วย exit code 0
+    hard_exit(0)
 
 
 if __name__ == "__main__":

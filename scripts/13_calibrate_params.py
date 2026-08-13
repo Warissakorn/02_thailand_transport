@@ -16,7 +16,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
@@ -366,11 +366,11 @@ def main():
         fh.write('SHARE_PAX = %r  # สัดส่วนโหมดผู้โดยสาร (ทุกทริป)\n' % {k: round(v, 5) for k, v in sh_p.items()})
         fh.write('SHARE_FRG = %r\n' % {k: round(v, 5) for k, v in sh_f.items()})
     log("wrote config/calibrated_params.py")
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if __name__ == '__main__':
     import multiprocessing as _mpmain
     _mpmain.freeze_support()   # จำเป็นบน Windows (spawn)
     LOG = open(B + r"\output\_13.log", "w", encoding="utf-8")
     try: main()
-    except Exception: log("ERR", traceback.format_exc())
+    except Exception: log("ERR", traceback.format_exc()); raise

@@ -12,7 +12,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
 from lib import scenario as sc
@@ -144,9 +144,9 @@ def main():
         with open(M + r"\3_mode_choice\mode_share_%s.csv" % stream, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh); w.writerow(["mode", "trips", "share_pct"])
             for m, v in sorted(totals.items(), key=lambda x: -x[1]): w.writerow([m, round(v), round(100*v/tot, 2)])
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try:
     main()
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

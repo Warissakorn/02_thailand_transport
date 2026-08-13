@@ -99,4 +99,4 @@ def main():
 
 if __name__ == '__main__':
     try: main()
-    except Exception: log("ERR", traceback.format_exc())
+    except Exception: log("ERR", traceback.format_exc()); raise

@@ -14,7 +14,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_diag.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -97,9 +97,9 @@ def main():
         z = sum(1 for d in sub if d['vol'] <= 0)
         mv = float(np.median([d['voc'] for d in sub]))
         log("  %-14s n=%-6d zero=%-5d medVOC=%.4f" % (hw, len(sub), z, mv))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 
 if __name__ == '__main__':
     try: main()
-    except Exception: log("ERR", traceback.format_exc())
+    except Exception: log("ERR", traceback.format_exc()); raise

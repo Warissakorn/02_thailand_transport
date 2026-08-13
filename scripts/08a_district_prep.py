@@ -14,7 +14,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
 from lib import scenario as sc
@@ -130,7 +130,7 @@ def main():
     for c in [tmp, B + r"\output\_dzone.tif"]:
         try: os.remove(c)
         except: pass
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try: main()
-except Exception: log("ERR", traceback.format_exc())
+except Exception: log("ERR", traceback.format_exc()); raise

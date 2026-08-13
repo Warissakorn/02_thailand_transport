@@ -57,6 +57,19 @@ REPORT  = OUTPUT + r"\report"
 SITE    = ROOT + r"\site"            # เว็บผลลัพธ์ (GitHub Pages)
 
 
+def hard_exit(code=0):
+    """จบโปรเซสทันทีโดยไม่เรียก destructor ของ Qt/GDAL
+
+    บน Linux/คอนเทนเนอร์ การปิด QgsApplication หลังใช้ processing มักทำให้เกิด
+    segmentation fault "หลังงานเสร็จแล้ว" (เขียนไฟล์ครบ) ซึ่งทำให้ CI มองว่าขั้นนั้นล้ม
+    ใช้ฟังก์ชันนี้ปิดท้ายสคริปต์ที่ทำงานสำเร็จแล้ว เพื่อให้ exit code สื่อความจริง
+    """
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)
+
+
 def ensure(*dirs):
     """สร้างโฟลเดอร์ถ้ายังไม่มี แล้วคืนค่าตัวแรก"""
     for d in dirs:

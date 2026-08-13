@@ -11,7 +11,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
 from lib import scenario as sc
@@ -86,9 +86,9 @@ def main():
                     w.writerow([zi, zj, round(v, 2)])
         log("%s: iters=%d total_trips=%.0f intrazonal=%.1f%% beta=%.3f -> %s" % (
             stream, iters, tot, 100*intra/tot if tot else 0, beta, os.path.basename(out)))
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 try:
     main()
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise

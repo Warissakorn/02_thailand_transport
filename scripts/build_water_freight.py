@@ -16,7 +16,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_wf.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
@@ -87,6 +87,6 @@ try:
     o=QgsVectorFileWriter.SaveVectorOptions(); o.driverName="GPKG"; o.layerName="access_seafreight"
     QgsVectorFileWriter.writeAsVectorFormatV3(acc,out,QgsCoordinateTransformContext(),o)
     log("access_seafreight: 77 | sample edges dist:", [(a,b,round(gc_km((PORTS[a][1],PORTS[a][2]),(PORTS[b][1],PORTS[b][2])))) for a,b in EDGES[:4]])
-    app.exitQgis(); log("DONE")
+    log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
-    log("ERR", traceback.format_exc())
+    log("ERR", traceback.format_exc()); raise
