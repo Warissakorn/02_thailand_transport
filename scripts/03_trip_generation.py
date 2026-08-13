@@ -27,7 +27,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT
+from lib.paths import ROOT as _ROOT, hard_exit
 BASE=_ROOT
 _sys.path.insert(0, _os.path.join(str(BASE), "config"))
 import model_params as mp
@@ -43,6 +43,11 @@ def cnt_in_provinces(prov, pts):
     return {f['GID_1']:(f['NUMPOINTS'] or 0) for f in res.getFeatures()}
 
 def main():
+    # เดิมรันใน Python console ของ QGIS; รันเป็นสคริปต์เดี่ยวต้อง init เอง
+    from qgis.core import QgsApplication
+    from processing.core.Processing import Processing
+    app = QgsApplication([], False); app.initQgis(); Processing.initialize()
+
     prov4326=QgsVectorLayer(BASE+r"\data\boundaries\gadm41_THA.gpkg|layername=ADM_ADM_1","p","ogr")
     taz=QgsVectorLayer(BASE+r"\data\zones_taz\taz_provinces.gpkg|layername=taz_provinces","taz","ogr")
     popl=QgsVectorLayer(BASE+r"\data\zones_taz\zone_population.gpkg|layername=zone_population","pp","ogr")
@@ -97,5 +102,7 @@ def main():
         QgsVectorFileWriter.writeAsVectorFormatV3(mem,out,QgsCoordinateTransformContext(),o)
         print("wrote",os.path.basename(out))
     print("totals: pop=%.0f schools=%d ind_km2=%.1f | P_pax=%.0f T_freight=%.0f"%(Spop,sum(sch.values()),Sind,SP_pax,T_F))
+    print("DONE")
+    hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 
 if True: main()
