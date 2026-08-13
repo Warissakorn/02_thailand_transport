@@ -23,6 +23,15 @@ import os, csv as _csv
 DIJKSTRA_BATCH = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
 
 
+def _rss():
+    """หน่วยความจำสูงสุดที่โปรเซสนี้เคยใช้ (ไว้ไล่หาจุดที่ RAM พุ่ง)"""
+    try:
+        import resource
+        return "peak RSS %.2f GB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1048576.0)
+    except Exception:
+        return "peak RSS n/a"
+
+
 def edge_lookup_arrays(lk_key, lk_edge, nN, u, v):
     """ค้น edge index ของคู่ (u,v) จากตารางเรียงแล้ว — ใช้ร่วมกับ lib.passign
 
@@ -287,16 +296,24 @@ def assign_multi(G, demands, batch=None):
     return flows
 
 
-def robust_tie(G, pts, sample_targets=None, min_reach=0.9, n_cand=6):
+def robust_tie(G, pts, sample_targets=None, min_reach=0.9, n_cand=6, log=None):
     """หา node ผูกต่อจุด โดยเลือก candidate ใกล้สุดที่เข้าถึงเครือข่ายส่วนใหญ่ได้
-    (กัน centroid ติด stub ที่ one-way ตัดขาด) — ทดสอบด้วย dijkstra ไปยัง sample_targets"""
+    (กัน centroid ติด stub ที่ one-way ตัดขาด) — ทดสอบด้วย dijkstra ไปยัง sample_targets
+
+    log: ฟังก์ชัน log (ถ้าให้มา) จะรายงานความคืบหน้า + หน่วยความจำเป็นระยะ
+    """
     ties = []
     nxy = G.nxy
-    for p in pts:
+    for i, p in enumerate(pts):
         x, y = (p.x(), p.y()) if hasattr(p, 'x') else (p[0], p[1])
         dx = nxy[:, 0]-x; dy = nxy[:, 1]-y
-        cand = np.argsort(dx*dx + dy*dy)[:n_cand]
+        d2 = dx*dx + dy*dy
+        # เอาแค่ n_cand ตัวใกล้สุด: argpartition เป็น O(nN) ไม่ต้องเรียงทั้ง 2.8 ล้าน node
+        part = np.argpartition(d2, n_cand)[:n_cand]
+        cand = part[np.argsort(d2[part])]
         ties.append(cand)
+        if log and (i + 1) % 200 == 0:
+            log("  tie candidates %d/%d | %s" % (i + 1, len(pts), _rss()))
     # ตรวจ candidate แรกทั้งชุดพร้อมกัน แล้วซ่อมเฉพาะตัวที่แย่
     first = np.array([c[0] for c in ties])
     targets = first if sample_targets is None else np.asarray(sample_targets)
@@ -306,6 +323,9 @@ def robust_tie(G, pts, sample_targets=None, min_reach=0.9, n_cand=6):
     for s0 in range(0, len(first), DIJKSTRA_BATCH):
         dm = dijkstra(G.csr, directed=G.directed, indices=first[s0:s0+DIJKSTRA_BATCH])
         reach[s0:s0+DIJKSTRA_BATCH] = np.isfinite(dm[:, targets]).mean(axis=1)
+        del dm
+        if log and (s0 // max(DIJKSTRA_BATCH, 1)) % 5 == 0:
+            log("  tie reach %d/%d | %s" % (min(s0+DIJKSTRA_BATCH, len(first)), len(first), _rss()))
     out = first.copy()
     for i in np.where(reach < min_reach)[0]:
         for c in ties[i][1:]:

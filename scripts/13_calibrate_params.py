@@ -72,10 +72,12 @@ def part_a():
     cen = QgsVectorLayer(B + r"\data\zones_taz\district_centroids.gpkg|layername=district_centroids", "c", "ogr")
     dc = sorted([(f['district_id'], f.geometry().asPoint()) for f in cen.getFeatures()])
     dids = [d[0] for d in dc]; Z = len(dids); didx = {d: i for i, d in enumerate(dids)}
-    tn, reach = robust_tie(G, [p for _, p in dc])
+    log("centroids read: %d | %s" % (len(dc), _mem()))
+    tn, reach = robust_tie(G, [p for _, p in dc], log=log)
     log("ties: %d districts | median first-tie reach=%.3f | repaired=%d | %s" % (
         Z, float(np.median(reach)), int((reach < 0.9).sum()), _mem()))
 
+    log("start OD cost matrix | %s" % _mem())
     cost = od_cost_matrix(G, tn)
     log("OD cost: finite=%.3f | %s" % (np.isfinite(cost).mean(), _mem()))
 
@@ -105,7 +107,7 @@ def part_a():
         T = gravity_furness(P['frg'], A['frg'], cost, bf)
         intra[('frg', bf)] = float(np.trace(T)/T.sum()*100)
         demands.append(to_demand(T)); labels.append(('frg', bf))
-    log("gravity done for %d beta candidates" % len(labels))
+    log("gravity done for %d beta candidates | %s" % (len(labels), _mem()))
 
     # สร้าง pool ตรงนี้ (ไม่ใช่ตอนต้น) เพื่อไม่ให้ worker กินหน่วยความจำค้างไว้
     # ตลอดช่วง tie/od-cost/gravity ซึ่งเป็นช่วงที่ใช้ RAM สูงสุด
