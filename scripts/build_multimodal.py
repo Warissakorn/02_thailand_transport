@@ -12,7 +12,14 @@ from qgis.PyQt.QtGui import QColor, QImage, QPainter
 import processing
 from processing.core.Processing import Processing
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
 LOG = open(B + r"\output\_mm.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -23,7 +30,7 @@ try:
     Processing.initialize()
 
     # (a) rail clean
-    rail = QgsVectorLayer(B+r"\data\multimodal\rail_lines.gpkg|layername=rail_lines","rail","ogr")
+    rail = QgsVectorLayer(B+r"\inputs\multimodal\rail_lines.gpkg|layername=rail_lines","rail","ogr")
     rep = processing.run("native:reprojectlayer",{'INPUT':rail,
         'TARGET_CRS':QgsCoordinateReferenceSystem('EPSG:32647'),'OUTPUT':'memory:'})['OUTPUT']
     rep.startEditing()
@@ -50,10 +57,10 @@ try:
     taz=L(r"data\zones_taz\taz_provinces.gpkg","taz_provinces")
     road=L(r"data\network\network_clean.gpkg","network_clean")
     railc=QgsVectorLayer(out+"|layername=rail_clean","rail_clean","ogr")
-    ferry=L(r"data\multimodal\ferry_routes.gpkg","ferry_routes")
+    ferry=L(r"inputs\multimodal\ferry_routes.gpkg","ferry_routes")
     alink=L(r"data\multimodal\air_links.gpkg","air_links")
     anode=L(r"data\multimodal\air_nodes.gpkg","air_nodes")
-    ports=L(r"data\multimodal\ports.gpkg","ports")
+    ports=L(r"inputs\multimodal\ports.gpkg","ports")
 
     taz.renderer().setSymbol(QgsFillSymbol.createSimple({'color':'0,0,0,0','outline_color':'#bdbdbd','outline_width':'0.2'}))
     road.renderer().setSymbol(QgsLineSymbol.createSimple({'color':'#e0e0e0','width':'0.1'}))

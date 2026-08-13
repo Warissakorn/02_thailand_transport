@@ -8,7 +8,14 @@ log -> output/_15.log ; รันผ่าน qpy.bat (background)
 """
 import os, sys, csv, math, traceback
 import numpy as np
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"; RT = B + r"\output\report\tables"; RF = B + r"\output\report\figures"
 LOG = open(B + r"\output\_15.log", "w", encoding="utf-8")

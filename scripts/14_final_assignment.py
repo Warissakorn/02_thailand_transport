@@ -13,17 +13,27 @@ log -> output/_14.log ; รันผ่าน qpy.bat (background)
 """
 import os, sys, csv, math, traceback
 import numpy as np
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ เท่านั้น (กัน worker process spawn มา truncate log)
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
-K_FACTOR = 0.09      # สัดส่วนชั่วโมงเร่งด่วนของปริมาณรายวัน (สมมติฐานตามแนวปฏิบัติ; ดู METHODOLOGY)
-EQ_ITER = 8          # multi-path MSA ต่อ component (แต่ละรอบ assign 7 สาย -> หนักกว่ารอบละ ~4x)
+from lib import scenario as sc
+K_FACTOR = sc.get("k_factor", 0.09)   # สัดส่วนชั่วโมงเร่งด่วนของปริมาณรายวัน (สมมติฐานตามแนวปฏิบัติ; ดู METHODOLOGY)
+EQ_ITER = int(sc.get("eq_iter", 8))  # multi-path MSA ต่อ component (แต่ละรอบ assign 7 สาย -> หนักกว่ารอบละ ~4x)
 ALPHA, BETA_BPR = 0.15, 4.0
 SNAP_TOL = 1500.0
-BASE_RATE, BASE_FF = 2.0, 0.10   # ค่าที่ใช้ตอนสร้าง district_tripgen.csv
+# ค่าที่ใช้ตอนสร้าง district_tripgen.csv (ขั้น 08a อ่านจาก model_params/scenario หมวด model)
+_m = sc.section("model")
+BASE_RATE, BASE_FF = _m.get("trip_rate_pax", 2.0), _m.get("freight_factor", 0.10)
 
 def main():
     from qgis.core import (QgsApplication, QgsVectorLayer, QgsSpatialIndex, QgsFeature,
@@ -33,6 +43,7 @@ def main():
     from lib.transport_graph import (build_road_graph, od_cost_matrix, gravity_furness,
         assign_multi, robust_tie, fit_stats, write_flow_gpkg)
     import calibrated_params as cp
+    sc.apply(cp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
     app = QgsApplication([], False); app.initQgis(); Processing.initialize()
 
     net = QgsVectorLayer(B + r"\data\network\network_clean.gpkg|layername=network_clean", "n", "ogr")
@@ -64,9 +75,9 @@ def main():
             d = (tp[:, 0]-p.x())**2 + (tp[:, 1]-p.y())**2
             k = int(np.argmin(d)); out.append(G.nearest(tp[k][0], tp[k][1]))
         return out
-    rail_n = term_nodes(r"data\multimodal\rail_stations.gpkg", "rail_stations")
-    air_n = term_nodes(r"data\multimodal\airports_pts.gpkg", "airports_pts")
-    port_n = term_nodes(r"data\multimodal\ports.gpkg", "ports")
+    rail_n = term_nodes(r"inputs\multimodal\rail_stations.gpkg", "rail_stations")
+    air_n = term_nodes(r"inputs\multimodal\airports_pts.gpkg", "airports_pts")
+    port_n = term_nodes(r"inputs\multimodal\ports.gpkg", "ports")
     sea_n = term_nodes(r"data\multimodal\seaport_nodes.gpkg", "seaport_nodes")
     log("terminal nodes tied")
 

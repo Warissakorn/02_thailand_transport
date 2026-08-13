@@ -6,7 +6,14 @@ out: model/4_trip_assignment/assigned_district.gpkg ; model/2_trip_distribution/
 รันผ่าน qpy.bat (background) ; log -> output/_d8b.log
 """
 import os, sys, csv, traceback, numpy as np
-sys.path.insert(0, r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport\config")
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
@@ -14,7 +21,7 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsVectorFileWriter, QgsCoordinateTransformContext)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"; M = B + r"\model"
+B = _ROOT; M = B + r"\model"
 LOG = open(B + r"\output\_d8b.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 FAC_PAX, FAC_FRG = 1.049, 1.24   # trip -> road PCU (จากสัดส่วนโหมด+PCU จังหวัด)

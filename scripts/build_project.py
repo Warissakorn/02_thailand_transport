@@ -9,7 +9,14 @@ from qgis.core import (QgsApplication, QgsProject, QgsVectorLayer,
     QgsCategorizedSymbolRenderer, QgsRendererCategory)
 from qgis.PyQt.QtGui import QColor
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
 LOG = open(B + r"\output\_build.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 
@@ -135,8 +142,8 @@ try:
     # terminals
     anode = add(g_term, r"data\multimodal\air_nodes.gpkg", "air_nodes", "สนามบิน (41)", True)
     sea   = add(g_term, r"data\multimodal\seaport_nodes.gpkg", "seaport_nodes", "ท่าเรือใหญ่ (10)", True)
-    rsta  = add(g_term, r"data\multimodal\rail_stations.gpkg", "rail_stations", "สถานีรถไฟ (855)", False)
-    ports = add(g_term, r"data\multimodal\ports.gpkg", "ports", "ท่าเรือ/ท่าเทียบ (529)", False)
+    rsta  = add(g_term, r"inputs\multimodal\rail_stations.gpkg", "rail_stations", "สถานีรถไฟ (855)", False)
+    ports = add(g_term, r"inputs\multimodal\ports.gpkg", "ports", "ท่าเรือ/ท่าเทียบ (529)", False)
     mark(anode, '#1565c0', '3.0', '0.4'); mark(sea, '#00838f', '3.2', '0.4')
     mark(rsta, '#6a1b9a', '1.4', '0.2'); mark(ports, '#0097a7', '1.0', '0.1')
 

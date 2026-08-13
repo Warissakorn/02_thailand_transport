@@ -1,13 +1,22 @@
-# Large regeneratable data — re-download/rebuild via scripts/01_fetch_data.py
-# and scripts/02_prep_network_taz.py (see docs/ for pipeline order).
+# ── INPUT (inputs/) และ PROCESS (scripts/, config/) commit ทั้งหมด ─────
+# ไฟล์ด้านล่างคือของที่ "สร้างใหม่ได้" จึงไม่เก็บในรีโป (ดู docs/PIPELINE_IO.md)
+
+# ข้อมูลที่ดาวน์โหลด/แปลงเอง — สร้างใหม่ด้วย scripts/01_fetch_data.py
+# และ scripts/02_prep_network_taz.py
 data/raw/
 data/boundaries/
 data/network/
 data/zones_taz/
 data/processed/
 
-# Full model run outputs — regenerate via scripts/03_*.py .. 14_final_assignment.py
+# ผลระหว่างทางของโมเดล — สร้างใหม่ด้วย scripts/03_*.py .. 14_final_assignment.py
 model/
+
+# เว็บผลลัพธ์ — สร้างใหม่ด้วย scripts/17_build_site.py (Actions deploy ขึ้น Pages ให้)
+site/
+
+# log การรัน
+output/_*.log
 
 __pycache__/
 *.pyc

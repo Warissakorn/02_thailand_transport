@@ -1,33 +1,59 @@
 name: Run transport model pipeline
 
-# Manual trigger only — this is a heavy geospatial job (downloads ~1.2GB of
-# public data, runs QGIS processing), not something to run on every push.
-# Free to run: GitHub-hosted runners give 2000 min/month free for private
-# repos (unlimited for public repos), and this workflow uses no paid services.
+# INPUT -> PROCESS -> OUTPUT (ดู docs/PIPELINE_IO.md)
+#   INPUT   : inputs/**            (แก้แล้ว push = รันใหม่อัตโนมัติ)
+#   PROCESS : workflow นี้ เรียก scripts/** ในคอนเทนเนอร์ QGIS
+#   OUTPUT  : สรุปในหน้า Actions + เว็บผลลัพธ์บน GitHub Pages + artifact
+#
+# ฟรีทั้งหมด: GitHub-hosted runner (public repo ไม่จำกัดนาที) และไม่มีบริการเสียเงิน
 on:
   workflow_dispatch:
     inputs:
       stages:
         description: >
-          Space-separated stage group to run: "fetch" (data only),
-          "network" (fetch + network/TAZ prep), "full" (entire pipeline
-          through report outputs + .qgz), or "all" (same as full).
+          ขอบเขตที่จะรัน: smoke (01+02 เช็คเร็ว), fetch (ดาวน์โหลดอย่างเดียว),
+          network (fetch + เตรียมโครงข่าย/TAZ), full (ทั้งหมดจนถึงรายงาน)
         required: false
         default: full
         type: choice
-        options:
-          - fetch
-          - network
-          - full
+        options: [smoke, fetch, network, full]
+      scenario:
+        description: ชื่อ scenario ใน inputs/scenarios/<ชื่อ>.yaml
+        required: false
+        default: base
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'inputs/**'
+      - 'config/**'
+      - 'scripts/**'
+      - '.github/workflows/run_pipeline.yml'
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # สคริปต์ทุกตัวหา root จาก TT_ROOT ก่อน (ดู scripts/lib/paths.py)
+  TT_ROOT: ${{ github.workspace }}
+  TT_SCENARIO: ${{ inputs.scenario || 'base' }}
+  STAGES: ${{ inputs.stages || 'full' }}
 
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    # Official QGIS image: ships QGIS + PyQGIS python bindings (qgis.core,
-    # qgis.analysis, processing) plus numpy/scipy/gdal — the same stack
-    # scripts/qpy.bat sets up locally on Windows, just on Linux.
+    timeout-minutes: 330
+    # image ทางการของ QGIS: มี PyQGIS (qgis.core/qgis.analysis/processing) + numpy/scipy/gdal
+    # เทียบเท่าสภาพแวดล้อมที่ qpy.bat เตรียมให้บน Windows
     container:
       image: qgis/qgis:release-3_34
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,16 +63,29 @@ jobs:
           python3 --version
           python3 -c "import qgis.core; print('PyQGIS OK:', qgis.core.Qgis.QGIS_VERSION)"
           python3 -c "import numpy, scipy; print('numpy', numpy.__version__, 'scipy', scipy.__version__)"
+          python3 -c "import sys; sys.path.insert(0,'scripts'); from lib import scenario as sc; print(sc.describe())"
+
+      # ข้อมูลดาวน์โหลด (OSM ~1 GB + WorldPop) ไม่เปลี่ยนบ่อย -> cache ไว้ข้ามรอบ
+      - name: Cache downloaded source data
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/raw
+            data/boundaries
+          key: srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-${{ github.run_id }}
+          restore-keys: |
+            srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-
+            srcdata-
 
       - name: 01 fetch data (gadm, osm, pop, aadt, targets)
         run: python3 scripts/01_fetch_data.py all
 
       - name: 02 prep network + TAZ
-        if: ${{ inputs.stages != 'fetch' }}
+        if: env.STAGES != 'fetch'
         run: python3 scripts/02_prep_network_taz.py
 
       - name: Province model (trip gen -> gravity -> mode choice)
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: |
           python3 scripts/03_trip_generation.py
           python3 scripts/04_od_cost.py
@@ -55,7 +94,7 @@ jobs:
           python3 scripts/05b_mode_choice.py
 
       - name: Multimodal networks (rail/water/air/freight + connectors)
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: |
           python3 scripts/build_connectors.py
           python3 scripts/build_multimodal.py
@@ -65,24 +104,24 @@ jobs:
           python3 scripts/build_popweighted_centroids.py
 
       - name: AADT projection + geolocation
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: |
           python3 scripts/build_aadt_projection.py
           python3 scripts/07a_geolocate_aadt.py
 
       - name: District model (928 อำเภอ) + calibration + assignment
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: |
           python3 scripts/08a_district_prep.py
           python3 scripts/13_calibrate_params.py
           python3 scripts/14_final_assignment.py
 
       - name: Report outputs (tables + figures)
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: python3 scripts/15_report_outputs.py
 
       - name: Auxiliary layers + assemble .qgz
-        if: ${{ inputs.stages == 'full' }}
+        if: env.STAGES == 'full'
         run: |
           python3 scripts/09a_mode_desire.py
           python3 scripts/09d_sequence_paths.py
@@ -91,10 +130,24 @@ jobs:
           python3 scripts/11_road_components.py
           python3 scripts/build_project.py
 
-      # data/ and model/ are gitignored (too large/regenerable for the repo
-      # and for free LFS quota) — publish this run's outputs as a workflow
-      # artifact instead. Short retention keeps it inside the free storage
-      # quota; download and discard, or re-run to regenerate.
+      # สคริปต์เขียน log ละเอียดลง output/_*.log -> ดึงมาไว้ในหน้า run เวลาพัง
+      - name: Script logs (on failure)
+        if: failure()
+        run: |
+          for f in output/_*.log; do
+            [ -e "$f" ] || continue
+            echo "::group::$f"; tail -n 60 "$f"; echo "::endgroup::"
+          done
+
+      - name: Job summary
+        if: always()
+        run: python3 scripts/16_summary.py >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build results website
+        if: always()
+        run: python3 scripts/17_build_site.py
+
+      # data/ และ model/ ใหญ่เกิน/สร้างใหม่ได้ จึงไม่ commit — เก็บเป็น artifact แทน
       - name: Upload model outputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,6 +156,29 @@ jobs:
           path: |
             model/
             output/report/
+            output/_*.log
             thailand_transport.qgz
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Upload site artifact for Pages
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  # เผยแพร่หน้าเว็บผลลัพธ์ (ต้องเปิด Settings -> Pages -> Source: GitHub Actions ก่อน)
+  deploy-pages:
+    needs: pipeline
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -10,7 +10,14 @@ from qgis.core import (QgsVectorLayer, QgsField, QgsVectorFileWriter,
                        QgsCoordinateReferenceSystem, QgsCoordinateTransformContext)
 from qgis.PyQt.QtCore import QVariant
 
-BASE = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+BASE = _ROOT
 SRC  = BASE + r"\data\network\roads_raw_4326.gpkg"
 OUT  = BASE + r"\data\network\network_clean.gpkg"
 

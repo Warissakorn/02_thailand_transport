@@ -10,7 +10,14 @@ out: config/calibrated_params.py, model/5_calibration/{calibration_search.csv,
 """
 import os, sys, csv, math, heapq, traceback
 import numpy as np
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ (กัน worker spawn มา truncate log)
@@ -28,7 +35,7 @@ ASC_FIT_ITER = 30
 def read_targets():
     """เป้า 2565: pax interzonal shares (car,bus,rail,air) + freight (truck,rail,water)"""
     tp = {}
-    rows = list(csv.DictReader(open(B + r"\data\calibration\targets\intercity_pt_share_otp6503.csv", encoding="utf-8-sig")))
+    rows = list(csv.DictReader(open(B + r"\inputs\calibration\targets\intercity_pt_share_otp6503.csv", encoding="utf-8-sig")))
     v = {'car': 0.0, 'bus': 0.0, 'rail': 0.0, 'air': 0.0}
     for r in rows:
         if r['ปี'] != '2565': continue
@@ -39,7 +46,7 @@ def read_targets():
         elif m == 'เครื่องบิน': v['air'] += val
     s = sum(v.values()); tp = {k: x/s for k, x in v.items()}
     tf = {}
-    rows = list(csv.DictReader(open(B + r"\data\calibration\targets\freight_by_mode_2560_2565.csv", encoding="utf-8-sig")))
+    rows = list(csv.DictReader(open(B + r"\inputs\calibration\targets\freight_by_mode_2560_2565.csv", encoding="utf-8-sig")))
     w = {}
     for r in rows:
         if r['ปี'] != '2565': continue
@@ -165,6 +172,8 @@ def small_allpairs(edges):
 def part_b(target_pax, target_frg):
     from qgis.core import QgsVectorLayer
     import model_params as mp
+    from lib import scenario as sc
+    sc.apply(mp)
     def read_matrix(path, vcol):
         d = {}
         for r in csv.DictReader(open(path, encoding="utf-8")):
@@ -328,6 +337,8 @@ def main():
 
     # trip rate scaling: k จาก part A ใช้ fac เดิม (1.072/1.236) -> แปลงเป็น rate ใหม่ด้วย fac ใหม่
     import model_params as mp
+    from lib import scenario as sc
+    sc.apply(mp)
     k_p_flow = sp['k']            # scale ที่ต้องคูณ flow (raw trips) ให้ตรง obs pax_pcu
     k_f_flow = sf['k']
     rate_pax = mp.TRIP_RATE_PAX * k_p_flow / fac_pax

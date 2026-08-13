@@ -14,7 +14,14 @@ from qgis.core import (QgsApplication, QgsVectorLayer, QgsField, QgsFeature, Qgs
     QgsVectorFileWriter, QgsCoordinateTransformContext, QgsCoordinateReferenceSystem)
 from qgis.PyQt.QtCore import QVariant
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"; M = B + r"\model"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT; M = B + r"\model"
 LOG = open(B + r"\output\_12.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 PAX_RPCU, FRG_RPCU = 1.072, 1.236
@@ -75,8 +82,8 @@ def main():
     dc = sorted([(f['district_id'], f.geometry().asPoint()) for f in cen.getFeatures()])
     dids = [d[0] for d in dc]; Z = len(dids); didx = {d: i for i, d in enumerate(dids)}
     cpts = [(p.x(), p.y()) for _, p in dc]; cnode = [nrst(nxy, x, y) for (x, y) in cpts]
-    rail_n = term_road(nxy, r"data\multimodal\rail_stations.gpkg", "rail_stations", cpts)
-    port_n = term_road(nxy, r"data\multimodal\ports.gpkg", "ports", cpts)
+    rail_n = term_road(nxy, r"inputs\multimodal\rail_stations.gpkg", "rail_stations", cpts)
+    port_n = term_road(nxy, r"inputs\multimodal\ports.gpkg", "ports", cpts)
     sea_n = term_road(nxy, r"data\multimodal\seaport_nodes.gpkg", "seaport_nodes", cpts)
 
     tn = np.array(cnode); cost = np.full((Z, Z), np.inf); BATCH = 150

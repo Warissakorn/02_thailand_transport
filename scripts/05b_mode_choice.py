@@ -6,11 +6,20 @@ P_m = exp(-θ·GC_m)/Σ ; โหมดที่ใช้ได้เท่าน
 out: model/3_mode_choice/mode_split_{passenger,freight}.csv + mode_share_summary.csv
 """
 import os, csv, sys, math, heapq, traceback
-sys.path.insert(0, r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport\config")
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+sys.path.insert(0, (_ROOT + r"\config"))
 import model_params as mp
+from lib import scenario as sc
+sc.apply(mp)      # ทับด้วย inputs/scenarios/<TT_SCENARIO>.yaml
 from qgis.core import QgsApplication, QgsVectorLayer
 
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
+B = _ROOT
 M = B + r"\model"
 LOG = open(B + r"\output\_mc.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()

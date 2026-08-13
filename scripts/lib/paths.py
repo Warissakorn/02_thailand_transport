@@ -1,0 +1,58 @@
+# -*- coding: utf-8 -*-
+"""paths — รากโปรเจกต์ + การต่อ path ที่ทำงานได้ทั้ง Windows และ Linux (GitHub Actions)
+
+ปัญหาเดิม: ทุกสคริปต์ hardcode `B = r"C:\\Users\\...\\02_thailand_transport"` แล้วต่อ path
+ด้วย backslash เช่น `B + r"\\data\\network\\network_clean.gpkg"` -> รันบน Linux ไม่ได้
+
+วิธีแก้: ROOT เป็น str ชนิดพิเศษที่แปลง "\\" เป็น os.sep ให้อัตโนมัติตอนต่อสตริง
+จึงไม่ต้องแก้ literal path หลายร้อยจุดในสคริปต์เดิม และบน Windows (os.sep == "\\")
+พฤติกรรมเหมือนเดิมทุกประการ
+
+ลำดับการหา ROOT:
+  1) ตัวแปรสภาพแวดล้อม TT_ROOT (ใช้ใน GitHub Actions: TT_ROOT=${{ github.workspace }})
+  2) เดินขึ้นจากไฟล์นี้จนเจอโฟลเดอร์ที่มีทั้ง config/ และ scripts/
+"""
+import os
+
+
+class ProjPath(str):
+    """str ที่ต่อ path แบบข้ามแพลตฟอร์ม: ProjPath("/a") + r"\\b\\c" -> "/a/b/c" """
+
+    def __add__(self, other):
+        return ProjPath(str(self) + str(other).replace("\\", os.sep))
+
+    def __truediv__(self, other):          # ทางเลือกที่อ่านง่ายกว่าสำหรับโค้ดใหม่
+        return ProjPath(os.path.join(str(self), str(other).replace("\\", os.sep)))
+
+
+def _discover_root():
+    env = os.environ.get("TT_ROOT")
+    if env:
+        return os.path.abspath(env)
+    d = os.path.dirname(os.path.abspath(__file__))
+    while d != os.path.dirname(d):
+        if os.path.isdir(os.path.join(d, "config")) and os.path.isdir(os.path.join(d, "scripts")):
+            return d
+        d = os.path.dirname(d)
+    # fallback: scripts/lib/paths.py -> ขึ้นสองชั้น
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+ROOT = ProjPath(_discover_root())
+
+# โฟลเดอร์มาตรฐานตามสัญญา Input -> Process -> Output (ดู docs/PIPELINE_IO.md)
+INPUTS  = ROOT + r"\inputs"          # ข้อมูลนำเข้าที่คนแก้ + commit
+CONFIG  = ROOT + r"\config"          # พารามิเตอร์ระดับโค้ด
+SCRIPTS = ROOT + r"\scripts"         # กระบวนการ
+DATA    = ROOT + r"\data"            # ข้อมูลที่ดาวน์โหลด/สร้างเอง (gitignored)
+MODEL   = ROOT + r"\model"           # ผลระหว่างทาง (gitignored)
+OUTPUT  = ROOT + r"\output"          # ผลลัพธ์
+REPORT  = OUTPUT + r"\report"
+SITE    = ROOT + r"\site"            # เว็บผลลัพธ์ (GitHub Pages)
+
+
+def ensure(*dirs):
+    """สร้างโฟลเดอร์ถ้ายังไม่มี แล้วคืนค่าตัวแรก"""
+    for d in dirs:
+        os.makedirs(str(d), exist_ok=True)
+    return dirs[0] if dirs else None

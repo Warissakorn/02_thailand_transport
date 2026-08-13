@@ -6,8 +6,15 @@
 out (ขั้นแรกนี้แค่วิเคราะห์): log output/_aadt_trend.log
 """
 import os, sys, csv, io, statistics, traceback
-B = r"C:\Users\nutta\Desktop\Qgis\projects\02_thailand_transport"
-H = B + r"\data\calibration\history"
+# --- project root (ข้ามแพลตฟอร์ม: Windows/Linux; ดู scripts/lib/paths.py) ---
+import os as _os, sys as _sys
+_d = _os.path.dirname(_os.path.abspath(__file__))
+while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
+    _d = _os.path.dirname(_d)
+_sys.path.insert(0, _os.path.join(_d, "scripts"))
+from lib.paths import ROOT as _ROOT
+B = _ROOT
+H = B + r"\inputs\calibration\history"
 LOG = open(B + r"\output\_aadt_trend.log", "w", encoding="utf-8")
 def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
 YEARS = [2563, 2564, 2565, 2566]
@@ -71,6 +78,7 @@ def main():
     SCALE_COLS = list(range(4, 15)) + [17]   # คอลัมน์นับคัน: นั่ง/โดยสาร/บรรทุก/รวม + จยย. (ไม่แตะ %หนัก, จักรยาน)
     src = list(csv.reader(io.StringIO(open(H + r"\aadt_2566.csv", "rb").read().decode("utf-8-sig"))))
     out = B + r"\data\calibration\aadt_current.csv"
+    os.makedirs(os.path.dirname(str(out)), exist_ok=True)
     with open(out, "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh)
         w.writerow(src[0])
