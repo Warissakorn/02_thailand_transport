@@ -68,6 +68,7 @@ def part_a():
     import lib.passign as passign
     from lib import scenario as _sc
     NW = _workers(_sc)
+    os.environ["TT_DIJKSTRA_BATCH"] = str(_sc.get("dijkstra_batch", 32))
     pool = _mp.Pool(NW, initializer=passign.init,
                     initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
     log("parallel pool: %d workers" % NW)

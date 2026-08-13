@@ -117,12 +117,21 @@ jobs:
           python3 scripts/build_aadt_projection.py
           python3 scripts/07a_geolocate_aadt.py
 
+      # ขั้นที่หนักที่สุด (กราฟ ~2.8M node) — พิมพ์ RAM และ exit code ให้ชัด
+      # exit 137 = ถูก OOM kill (ไม่มี traceback) -> ลด run.dijkstra_batch / run.workers
       - name: District model (928 อำเภอ) + calibration + assignment
         if: env.STAGES == 'full'
         run: |
-          python3 scripts/08a_district_prep.py
-          python3 scripts/13_calibrate_params.py
-          python3 scripts/14_final_assignment.py
+          echo "RAM ที่มี:"; free -m | head -2
+          for s in 08a_district_prep 13_calibrate_params 14_final_assignment; do
+            echo "--- $s ---"
+            set +e; python3 "scripts/$s.py"; code=$?; set -e
+            echo "$s exit code: $code"; free -m | head -2
+            if [ "$code" -ne 0 ]; then
+              [ "$code" -eq 137 ] && echo "::error::$s ถูก kill เพราะหน่วยความจำไม่พอ (OOM)"
+              exit "$code"
+            fi
+          done
 
       - name: Report outputs (tables + figures)
         if: env.STAGES == 'full'

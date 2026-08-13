@@ -5,6 +5,7 @@
 โมดูลนี้ตั้งใจ **ไม่ import qgis** เพื่อให้ worker (spawn บน Windows) เบา/เร็ว
 ใช้ได้กับกราฟ directed/undirected เดียวกับ lib.transport_graph.Graph
 """
+import os
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
@@ -39,7 +40,8 @@ def _work(task):
     nE = _S['nE']; nN = _S['nN']; edge_of = _S['edge_of']; directed = _S['directed']
     K = len(dem_list)
     flows = [np.zeros(nE) for _ in range(K)]
-    B = 40   # batch dijkstra ภายใน worker (คุมหน่วยความจำ pred = B x nN x 4 ไบต์)
+    # batch dijkstra ภายใน worker (dmat+pred = B x nN x 12 ไบต์ ต่อ worker)
+    B = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
     for s0 in range(0, len(origins), B):
         srcs = origins[s0:s0 + B]
         dmat, pred = dijkstra(csr, directed=directed, indices=srcs,

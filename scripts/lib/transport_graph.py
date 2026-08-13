@@ -16,6 +16,12 @@ from qgis.core import (QgsVectorLayer, QgsField, QgsFeature, QgsGeometry, QgsPoi
 from qgis.PyQt.QtCore import QVariant
 import os, csv as _csv
 
+# ขนาด batch ของ dijkstra: dmat/pred กินหน่วยความจำ batch x nN x 12 ไบต์
+# กราฟระดับอำเภอมี ~2.8M node -> 1 origin กิน ~33 MB ค่าตั้งต้นเดิม (120-150)
+# จึงต้องใช้ RAM 4 GB+ ต่อครั้งและถูก OOM kill บนเครื่องเล็ก/CI
+# ปรับได้ด้วย scenario run.dijkstra_batch (ขั้น 13/14 ส่งต่อผ่าน env นี้ไปยัง worker)
+DIJKSTRA_BATCH = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
+
 
 class Graph:
     """กราฟเครือข่าย: node coords + edge arrays + csr (directed หรือไม่ก็ได้)"""
@@ -134,8 +140,9 @@ def build_simple_graph(layer, costmode='time', costfield=None, round_dp=1):
 
 # ---------------- routing / assignment ----------------
 
-def od_cost_matrix(G, tie_nodes, batch=150):
+def od_cost_matrix(G, tie_nodes, batch=None):
     """เวลาเดินทางระหว่าง tie_nodes ทุกคู่ -> (Z,Z) numpy (inf = เข้าไม่ถึง)"""
+    batch = batch or DIJKSTRA_BATCH
     tn = np.asarray(tie_nodes); Z = len(tn)
     cost = np.full((Z, Z), np.inf)
     for s0 in range(0, Z, batch):
@@ -144,9 +151,10 @@ def od_cost_matrix(G, tie_nodes, batch=150):
     return cost
 
 
-def assign_pairs(G, demand, batch=120, costs=None):
+def assign_pairs(G, demand, batch=None, costs=None):
     """AON assignment: demand = {origin_node: {dest_node: pcu}} -> flow ต่อ edge
     costs: ถ้าให้มา จะ rebuild csr ชั่วคราว (เช่นตอน equilibrium)"""
+    batch = batch or DIJKSTRA_BATCH
     if costs is not None: G.rebuild_csr(costs)
     flow = np.zeros(G.nE)
     origins = sorted(demand.keys())
@@ -169,9 +177,10 @@ def assign_pairs(G, demand, batch=120, costs=None):
     return flow
 
 
-def assign_multi(G, demands, batch=120):
+def assign_multi(G, demands, batch=None):
     """AON หลาย demand matrix ใน routing sweep เดียว (เส้นทางคงที่ ต่างกันแค่ปริมาณ)
     demands: list ของ {origin_node: {dest_node: value}} -> list ของ flow arrays"""
+    batch = batch or DIJKSTRA_BATCH
     K = len(demands)
     flows = [np.zeros(G.nE) for _ in range(K)]
     all_origins = sorted(set().union(*[set(d.keys()) for d in demands]))

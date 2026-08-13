@@ -67,6 +67,7 @@ def main():
     import multiprocessing as _mp
     import lib.passign as passign
     NW = workers()
+    os.environ["TT_DIJKSTRA_BATCH"] = str(sc.get("dijkstra_batch", 32))
     pool = _mp.Pool(NW, initializer=passign.init,
                     initargs=(G.Eu, G.Ev, G.Eoneway, G.edge_of, G.nN, G.nE, G.directed))
     log("parallel pool: %d workers" % NW)
