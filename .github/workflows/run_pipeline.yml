@@ -1,0 +1,108 @@
+name: Run transport model pipeline
+
+# Manual trigger only — this is a heavy geospatial job (downloads ~1.2GB of
+# public data, runs QGIS processing), not something to run on every push.
+# Free to run: GitHub-hosted runners give 2000 min/month free for private
+# repos (unlimited for public repos), and this workflow uses no paid services.
+on:
+  workflow_dispatch:
+    inputs:
+      stages:
+        description: >
+          Space-separated stage group to run: "fetch" (data only),
+          "network" (fetch + network/TAZ prep), "full" (entire pipeline
+          through report outputs + .qgz), or "all" (same as full).
+        required: false
+        default: full
+        type: choice
+        options:
+          - fetch
+          - network
+          - full
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    # Official QGIS image: ships QGIS + PyQGIS python bindings (qgis.core,
+    # qgis.analysis, processing) plus numpy/scipy/gdal — the same stack
+    # scripts/qpy.bat sets up locally on Windows, just on Linux.
+    container:
+      image: qgis/qgis:release-3_34
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          python3 --version
+          python3 -c "import qgis.core; print('PyQGIS OK:', qgis.core.Qgis.QGIS_VERSION)"
+          python3 -c "import numpy, scipy; print('numpy', numpy.__version__, 'scipy', scipy.__version__)"
+
+      - name: 01 fetch data (gadm, osm, pop, aadt, targets)
+        run: python3 scripts/01_fetch_data.py all
+
+      - name: 02 prep network + TAZ
+        if: ${{ inputs.stages != 'fetch' }}
+        run: python3 scripts/02_prep_network_taz.py
+
+      - name: Province model (trip gen -> gravity -> mode choice)
+        if: ${{ inputs.stages == 'full' }}
+        run: |
+          python3 scripts/03_trip_generation.py
+          python3 scripts/04_od_cost.py
+          python3 scripts/04b_gravity.py
+          python3 scripts/05a_linehaul.py
+          python3 scripts/05b_mode_choice.py
+
+      - name: Multimodal networks (rail/water/air/freight + connectors)
+        if: ${{ inputs.stages == 'full' }}
+        run: |
+          python3 scripts/build_connectors.py
+          python3 scripts/build_multimodal.py
+          python3 scripts/build_water.py
+          python3 scripts/build_water_freight.py
+          python3 scripts/build_air_network.py
+          python3 scripts/build_popweighted_centroids.py
+
+      - name: AADT projection + geolocation
+        if: ${{ inputs.stages == 'full' }}
+        run: |
+          python3 scripts/build_aadt_projection.py
+          python3 scripts/07a_geolocate_aadt.py
+
+      - name: District model (928 อำเภอ) + calibration + assignment
+        if: ${{ inputs.stages == 'full' }}
+        run: |
+          python3 scripts/08a_district_prep.py
+          python3 scripts/13_calibrate_params.py
+          python3 scripts/14_final_assignment.py
+
+      - name: Report outputs (tables + figures)
+        if: ${{ inputs.stages == 'full' }}
+        run: python3 scripts/15_report_outputs.py
+
+      - name: Auxiliary layers + assemble .qgz
+        if: ${{ inputs.stages == 'full' }}
+        run: |
+          python3 scripts/09a_mode_desire.py
+          python3 scripts/09d_sequence_paths.py
+          python3 scripts/10a_road_total_prov.py
+          python3 scripts/10b_road_total_dist.py
+          python3 scripts/11_road_components.py
+          python3 scripts/build_project.py
+
+      # data/ and model/ are gitignored (too large/regenerable for the repo
+      # and for free LFS quota) — publish this run's outputs as a workflow
+      # artifact instead. Short retention keeps it inside the free storage
+      # quota; download and discard, or re-run to regenerate.
+      - name: Upload model outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-outputs
+          path: |
+            model/
+            output/report/
+            thailand_transport.qgz
+          retention-days: 7
+          if-no-files-found: warn

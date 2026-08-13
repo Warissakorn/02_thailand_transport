@@ -69,3 +69,21 @@ scripts\qpy.bat scripts\build_project.py         & REM ประกอบ .qgz
 ## สภาพแวดล้อม
 QGIS 3.44.7 (มี numpy 1.26 / scipy 1.13 ในตัว) บน Windows · ไม่ต้องติดตั้งปลั๊กอินเพิ่ม
 รายละเอียดซอฟต์แวร์และเวอร์ชันข้อมูล: `docs/DATA_SOURCES.md` §4
+
+## รันบนคลาวด์ (ไม่มีค่าใช้จ่าย)
+`data/` และ `model/` ถูก gitignore ไว้ (regenerate ได้, ใหญ่เกินจะ commit) — รันทั้ง pipeline
+ใหม่ได้ฟรีบน 2 ทาง:
+
+- **GitHub Actions**: แท็บ Actions → "Run transport model pipeline" → Run workflow
+  (`workflow_dispatch` เท่านั้น ไม่รันอัตโนมัติทุก push). รันใน container
+  `qgis/qgis:release-3_34` (มี PyQGIS/numpy/scipy พร้อม) ตามลำดับใน README นี้ แล้วอัป
+  `model/`, `output/report/`, `.qgz` เป็น artifact (เก็บ 7 วัน). อยู่ใน free tier ของ
+  GitHub (2,000 นาที/เดือน repo private, ไม่จำกัดถ้า public) ดูไฟล์ [`.github/workflows/run_pipeline.yml`](.github/workflows/run_pipeline.yml)
+- **Google Colab**: ในเซลล์แรกของ notebook ติดตั้ง QGIS แบบ headless ก่อนรันสคริปต์เดิม:
+  ```bash
+  !apt-get update -qq && apt-get install -qq -y qgis python3-qgis
+  !python3 scripts/01_fetch_data.py all
+  !python3 scripts/02_prep_network_taz.py
+  # ... ตามลำดับใน README (03..15, build_*.py)
+  ```
+  Colab ใช้ Ubuntu VM ฟรี เพียงพอสำหรับรันทั้ง pipeline โดยไม่มีค่าใช้จ่าย
