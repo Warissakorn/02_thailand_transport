@@ -125,8 +125,11 @@ jobs:
           echo "RAM ที่มี:"; free -m | head -2
           for s in 08a_district_prep 13_calibrate_params 14_final_assignment; do
             echo "--- $s ---"
-            set +e; python3 "scripts/$s.py"; code=$?; set -e
-            echo "$s exit code: $code"; free -m | head -2
+            set +e
+            python3 "scripts/$s.py" 2>&1 | tee -a output/_stage_district.log
+            code=${PIPESTATUS[0]}
+            set -e
+            { echo "$s exit code: $code"; free -m | head -2; } | tee -a output/_stage_district.log
             if [ "$code" -ne 0 ]; then
               [ "$code" -eq 137 ] && echo "::error::$s ถูก kill เพราะหน่วยความจำไม่พอ (OOM)"
               exit "$code"

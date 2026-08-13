@@ -220,8 +220,12 @@ def robust_tie(G, pts, sample_targets=None, min_reach=0.9, n_cand=6):
     # ตรวจ candidate แรกทั้งชุดพร้อมกัน แล้วซ่อมเฉพาะตัวที่แย่
     first = np.array([c[0] for c in ties])
     targets = first if sample_targets is None else np.asarray(sample_targets)
-    dmat = dijkstra(G.csr, directed=G.directed, indices=first)
-    reach = np.isfinite(dmat[:, targets]).mean(axis=1)
+    # เดิมยิง dijkstra ทุกจุดพร้อมกันครั้งเดียว: 928 อำเภอ x 2.76M node x 8 ไบต์ = ~20 GB
+    # -> ถูก OOM kill ทันที ทำเป็น batch แล้วเก็บเฉพาะสัดส่วน reach (ผลลัพธ์เท่าเดิมทุกประการ)
+    reach = np.empty(len(first), dtype=float)
+    for s0 in range(0, len(first), DIJKSTRA_BATCH):
+        dm = dijkstra(G.csr, directed=G.directed, indices=first[s0:s0+DIJKSTRA_BATCH])
+        reach[s0:s0+DIJKSTRA_BATCH] = np.isfinite(dm[:, targets]).mean(axis=1)
     out = first.copy()
     for i in np.where(reach < min_reach)[0]:
         for c in ties[i][1:]:
