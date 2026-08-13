@@ -126,23 +126,75 @@ def _noded_edges(feats):
     return nxy, Eu, Ev, Elen, Emeta, Eg, Eow
 
 
+def _vkeys(coords, round_dp):
+    """พิกัด (N,2) -> คีย์ int64 หนึ่งค่าต่อจุด (เท่ากับการปัดทศนิยม round_dp แล้วเทียบ tuple)
+
+    เก็บคีย์เป็น int64 แทน tuple ของ float ทำให้ set/dict ตอน noding เล็กลงหลายเท่า
+    (พิกัด UTM เมตร x10 อยู่ในช่วง ~1e7 จึงใส่ครึ่งละ 32 บิตได้สบาย)
+    """
+    q = np.rint(coords * (10.0 ** round_dp)).astype(np.int64)
+    return (q[:, 0] << np.int64(32)) + q[:, 1] + np.int64(1 << 31)
+
+
 def build_road_graph(layer, directed=True, min_speed=3.0, round_dp=1, default_lanes=2):
     """กราฟถนนจาก network_clean: cost=เวลา(นาที) จาก speed_kmh; oneway_i -> directed
     เก็บ G.Ecap_hr = ความจุรายชั่วโมงต่อ edge (capacity/เลน/ชม. x เลน)
-    หมายเหตุ: oneway=-1 (สวนทิศ digitize) ใน OSM ถูก treat เป็น oneway ปกติ — ดู LIMITATIONS"""
-    feats = []
+    หมายเหตุ: oneway=-1 (สวนทิศ digitize) ใน OSM ถูก treat เป็น oneway ปกติ — ดู LIMITATIONS
+
+    โครงข่ายระดับอำเภอมี ~1.6 ล้านเส้น/12 ล้านจุด การเก็บพิกัดเป็น tuple/QgsPointXY
+    ทั้งหมดพร้อมกันกิน RAM หลาย GB จนถูก OOM kill บนเครื่อง 16 GB จึงเก็บพิกัดเป็น
+    numpy array ต่อเส้น และใช้คีย์ int64 ในการหา node ร่วม (ผลลัพธ์เท่าเดิมทุกประการ)
+    """
+    coords = []; keys = []; metas = []; ows = []
     for f in layer.getFeatures():
-        g = f.geometry(); pl = _extract_polyline(g)
+        pl = _extract_polyline(f.geometry())
         if len(pl) < 2: continue
-        rv = [(round(p.x(), round_dp), round(p.y(), round_dp)) for p in pl]
+        xy = np.empty((len(pl), 2), dtype=float)
+        for i, p in enumerate(pl):
+            xy[i, 0] = p.x(); xy[i, 1] = p.y()
         spd = f['speed_kmh'] or 40.0
-        ow = int(f['oneway_i'] or 0) if directed else 0
         try: lanes = int(str(f['lanes']).split(';')[0])
         except Exception: lanes = default_lanes
-        cap_hr = (f['capacity'] or 800) * max(lanes, 1)
-        feats.append((rv, pl, (float(spd), float(cap_hr)), ow))
-    nxy, Eu, Ev, Elen, Emeta, Eg, Eow = _noded_edges(feats)
-    Espd = [m[0] for m in Emeta]; Ecap = [m[1] for m in Emeta]
+        coords.append(xy)
+        keys.append(_vkeys(xy, round_dp))
+        metas.append((float(spd), float((f['capacity'] or 800) * max(lanes, 1))))
+        ows.append(int(f['oneway_i'] or 0) if directed else 0)
+
+    # node = ปลายเส้น หรือจุดที่ >=2 เส้นใช้ร่วมกัน (T-junction) — คิดบน array ล้วน
+    allk = np.concatenate(keys)
+    uniq, cnt = np.unique(allk, return_counts=True)
+    shared = uniq[cnt >= 2]
+    ends = np.unique(np.concatenate([k[[0, -1]] for k in keys]))
+    nodekeys = np.union1d(shared, ends)
+    del allk, uniq, cnt, shared, ends
+
+    nxy = np.full((len(nodekeys), 2), np.nan)
+    Eu = []; Ev = []; Elen = []; Espd = []; Ecap = []; Eg = []; Eow = []
+    for xy, k, meta, ow in zip(coords, keys, metas, ows):
+        nid = np.searchsorted(nodekeys, k)
+        isnode = nodekeys[np.minimum(nid, len(nodekeys)-1)] == k
+        idxs = np.flatnonzero(isnode)
+        for a, b in zip(idxs[:-1], idxs[1:]):
+            ia, ib = int(nid[a]), int(nid[b])
+            if ia == ib: continue
+            if np.isnan(nxy[ia, 0]): nxy[ia] = xy[a]
+            if np.isnan(nxy[ib, 0]): nxy[ib] = xy[b]
+            gs = QgsGeometry.fromPolylineXY([QgsPointXY(x, y) for x, y in xy[a:b+1]])
+            Eu.append(ia); Ev.append(ib)
+            Elen.append(gs.length()); Espd.append(meta[0]); Ecap.append(meta[1])
+            Eg.append(gs); Eow.append(ow)
+    del coords, keys, metas, ows
+
+    # เก็บเฉพาะ node ที่เป็นปลายของ edge จริง (เหมือนเวอร์ชันเดิมที่ใส่ทีละจุดตอนพบ)
+    # เพื่อไม่ให้มี node ลอย ๆ ทำให้ nN โตขึ้นเปล่า ๆ
+    Eu = np.asarray(Eu, dtype=np.int64); Ev = np.asarray(Ev, dtype=np.int64)
+    used = np.zeros(len(nodekeys), dtype=bool)
+    used[Eu] = True; used[Ev] = True
+    if not used.all():
+        remap = np.full(len(nodekeys), -1, dtype=np.int64)
+        remap[used] = np.arange(int(used.sum()))
+        Eu = remap[Eu]; Ev = remap[Ev]; nxy = nxy[used]
+
     Ec = [(L/1000.0)/max(s, min_speed)*60.0 for L, s in zip(Elen, Espd)]
     G = Graph(nxy, Eu, Ev, Ec, Eg, Eow)
     G.Elen = np.asarray(Elen); G.Espd = np.asarray(Espd); G.Ecap_hr = np.asarray(Ecap)
