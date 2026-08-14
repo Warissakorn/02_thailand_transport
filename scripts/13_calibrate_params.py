@@ -16,7 +16,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT, hard_exit
+from lib.paths import ROOT as _ROOT, hard_exit, ensure_parent
 B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
@@ -165,7 +165,7 @@ def part_a():
         cur = best[stream][1]
         if cur is None or stats['r2'] > cur['r2']:
             best[stream] = (b, stats)
-    with open(M + r"\5_calibration\calibration_search.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(ensure_parent(M + r"\5_calibration\calibration_search.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(curves[0].keys())); w.writeheader()
         for c in curves: w.writerow(c)
     return best
@@ -327,7 +327,7 @@ def part_b(target_pax, target_frg):
     fac_frg = tot_fall.get('truck', 0)*2.0/trips_fall
     sh_frg_all = {m: v/trips_fall for m, v in tot_fall.items()}
 
-    with open(M + r"\5_calibration\mode_share_calibrated.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(ensure_parent(M + r"\5_calibration\mode_share_calibrated.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["stream", "mode", "model_share_interzonal", "target_2565", "share_all_trips"])
         for m in ('car', 'bus', 'rail', 'air', 'motorcycle', 'water'):

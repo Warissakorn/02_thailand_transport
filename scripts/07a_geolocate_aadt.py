@@ -20,7 +20,7 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT, hard_exit
+from lib.paths import ROOT as _ROOT, hard_exit, ensure_parent
 B = _ROOT
 LOG = open(B + r"\output\_geo.log", "w", encoding="utf-8")
 def log(*a):
@@ -182,10 +182,14 @@ try:
             else:
                 n_skip += 1
 
-    o = B + r"\model\5_calibration\aadt_points.gpkg"
+    # model/ ถูก gitignore จึงไม่มีบนเครื่องที่ clone ใหม่ — ถ้าไม่สร้างโฟลเดอร์ก่อน
+    # writer จะไม่เขียนอะไรเลยโดยไม่โยน error ทำให้ขั้น 13/14 อ่านได้ 0 สถานี
+    o = ensure_parent(B + r"\model\5_calibration\aadt_points.gpkg")
     if os.path.exists(o): os.remove(o)
     opt = QgsVectorFileWriter.SaveVectorOptions(); opt.driverName = "GPKG"; opt.layerName = "aadt_points"
-    QgsVectorFileWriter.writeAsVectorFormatV3(out, o, QgsCoordinateTransformContext(), opt)
+    res = QgsVectorFileWriter.writeAsVectorFormatV3(out, o, QgsCoordinateTransformContext(), opt)
+    if (isinstance(res, (tuple, list)) and res[0] != QgsVectorFileWriter.NoError) or not os.path.exists(o):
+        raise RuntimeError("เขียน %s ไม่สำเร็จ: %r" % (o, res))
     tot = n_chain + n_fb
     log("PLACED %d/%d | chainage(validated-in-province)=%d (%.1f%%) fallback=%d skip=%d" % (
         tot, len(stations), n_chain, 100.0*n_chain/max(tot, 1), n_fb, n_skip))
