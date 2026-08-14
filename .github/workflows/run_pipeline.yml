@@ -12,11 +12,13 @@ on:
       stages:
         description: >
           ขอบเขตที่จะรัน: smoke (01+02 เช็คเร็ว), fetch (ดาวน์โหลดอย่างเดียว),
-          network (fetch + เตรียมโครงข่าย/TAZ), full (ทั้งหมดจนถึงรายงาน)
+          network (fetch + เตรียมโครงข่าย/TAZ),
+          calib (network + วางสถานี AADT — ใช้ไล่ปัญหา 07a/13 โดยไม่ต้องรอ 2 ชม.),
+          full (ทั้งหมดจนถึงรายงาน)
         required: false
         default: full
         type: choice
-        options: [smoke, fetch, network, full]
+        options: [smoke, fetch, network, calib, full]
       scenario:
         description: ชื่อ scenario ใน inputs/scenarios/<ชื่อ>.yaml
         required: false
@@ -135,6 +137,14 @@ jobs:
           python3 scripts/04b_gravity.py
           python3 scripts/05a_linehaul.py
           python3 scripts/05b_mode_choice.py
+
+      # 07a ไม่ได้ใช้ผลจาก province model จึงลัดมาทดสอบตรงนี้ได้ใน ~10 นาที
+      # (รอบ full ต้องรอ 2 ชม. กว่าจะรู้ว่า 07a/13 มีปัญหา)
+      - name: AADT projection + geolocation (stage calib)
+        if: env.STAGES == 'calib'
+        run: |
+          python3 scripts/build_aadt_projection.py
+          python3 scripts/07a_geolocate_aadt.py
 
       - name: AADT projection + geolocation
         if: env.STAGES == 'full'

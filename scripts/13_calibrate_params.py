@@ -122,17 +122,30 @@ def part_a():
     eidx = QgsSpatialIndex()
     for e in range(G.nE):
         f = QgsFeature(e+1); f.setGeometry(G.Eg[e]); eidx.addFeature(f)
+    # วินิจฉัยก่อนวน: ถ้าได้ 0 จุด ต้องแยกให้ออกว่า "ชั้นว่าง/เปิดไม่ได้" หรือ "ไกลเกิน SNAP_TOL"
+    ext = aadt.extent(); gxy = np.asarray(G.nxy)
+    log("aadt layer: valid=%s n=%d crs=%s extent=(%.0f %.0f)-(%.0f %.0f)"
+        % (aadt.isValid(), aadt.featureCount(), aadt.sourceCrs().authid(),
+           ext.xMinimum(), ext.yMinimum(), ext.xMaximum(), ext.yMaximum()))
+    log("graph extent: (%.0f %.0f)-(%.0f %.0f) | edges=%d"
+        % (gxy[:, 0].min(), gxy[:, 1].min(), gxy[:, 0].max(), gxy[:, 1].max(), G.nE))
     st_edge = []; st_pax = []; st_frg = []; st_tot = []
+    dists = []
     for f in aadt.getFeatures():
         p = f.geometry()
         best = None; bd = 1e18
         for fid in eidx.nearestNeighbor(p.asPoint(), 8):
             d = G.Eg[fid-1].distance(p)
             if d < bd: bd = d; best = fid-1
+        dists.append(bd)
         if best is not None and bd <= SNAP_TOL:
             st_edge.append(best); st_pax.append(f['pax_pcu']); st_frg.append(f['frg_pcu']); st_tot.append(f['aadt'])
     st_edge = np.array(st_edge, dtype=np.int64); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
     log("stations snapped to edges: %d" % len(st_edge))
+    if dists:
+        dd = np.sort(np.asarray(dists, float))
+        log("ระยะสถานี->edge ที่ใกล้ที่สุด (m): min=%.1f median=%.1f max=%.1f (SNAP_TOL=%.0f)"
+            % (dd[0], dd[len(dd)//2], dd[-1], SNAP_TOL))
     if st_edge.size == 0:
         raise SystemExit("ไม่มีสถานี AADT ติดโครงข่ายเลย — ตรวจ output/_geo.log (ขั้น 07a) ก่อนรัน 13")
 

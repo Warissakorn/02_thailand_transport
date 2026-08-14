@@ -23,7 +23,12 @@ _sys.path.insert(0, _os.path.join(_d, "scripts"))
 from lib.paths import ROOT as _ROOT, hard_exit
 B = _ROOT
 LOG = open(B + r"\output\_geo.log", "w", encoding="utf-8")
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+def log(*a):
+    # พิมพ์ออก stdout ด้วย: บน CI ขั้นดัมป์ log ท้าย job หยิบมาแค่ 3 ไฟล์ล่าสุด
+    # _geo.log จึงมองไม่เห็นเลยเวลาไปพังที่ขั้น 13 ทีหลัง
+    msg = " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 # PCU ต่อชนิดรถ (คอลัมน์ AADT กรมทางหลวง) — mapping ระบุใน DATA_SOURCES/METHODOLOGY
 PCU_PAX = {4: 1.0, 5: 1.0, 6: 1.5, 7: 2.0, 8: 2.5, 17: 0.33}  # นั่ง<=7, นั่ง>7, โดยสารเล็ก/กลาง/ใหญ่, สามล้อ+จยย.
