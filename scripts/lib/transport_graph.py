@@ -23,6 +23,27 @@ import os, csv as _csv
 DIJKSTRA_BATCH = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
 
 
+def ancestors(ds, ps, dests):
+    """node บนเส้นทางสั้นสุดจาก origin ไปยัง dests เรียงระยะทางมาก -> น้อย
+
+    flow ถูกกระจายขึ้นต้นไม้เส้นทางเฉพาะ node เหล่านี้ (node อื่น acc=0 เสมอ)
+    การวนทุก node ในกราฟจึงเสียเปล่า — บนกราฟอำเภอคือ 2.76 ล้าน node ต่อ origin
+    ต่อหนึ่ง demand matrix ซึ่งทำให้ขั้น 13/14 ใช้เวลาหลายชั่วโมง
+    """
+    mask = np.zeros(len(ds), dtype=bool)
+    cur = np.asarray(dests, dtype=np.int64)
+    cur = cur[np.isfinite(ds[cur])]
+    while cur.size:
+        new = cur[~mask[cur]]
+        if not new.size:
+            break
+        mask[new] = True
+        p = ps[new]
+        cur = p[p >= 0]
+    sub = np.flatnonzero(mask)
+    return sub[np.argsort(ds[sub])[::-1]]
+
+
 def _rss():
     """หน่วยความจำสูงสุดที่โปรเซสนี้เคยใช้ (ไว้ไล่หาจุดที่ RAM พุ่ง)"""
     try:
@@ -255,11 +276,12 @@ def assign_pairs(G, demand, batch=None, costs=None):
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
             acc = np.zeros(G.nN)
-            for dn, v in demand[on].items(): acc[dn] += v
+            dests = np.fromiter(demand[on].keys(), dtype=np.int64, count=len(demand[on]))
+            np.add.at(acc, dests,
+                      np.fromiter(demand[on].values(), dtype=float, count=len(demand[on])))
             if acc.sum() <= 0: continue
             e_of = G.edge_lookup(ps, nodes)     # edge ที่เข้าสู่แต่ละ node บนต้นไม้เส้นทาง
-            for node in np.argsort(ds)[::-1]:
-                if not np.isfinite(ds[node]): continue
+            for node in ancestors(ds, ps, dests):
                 e = e_of[node]
                 if e >= 0:
                     flow[e] += acc[node]; acc[ps[node]] += acc[node]
@@ -280,16 +302,15 @@ def assign_multi(G, demands, batch=None):
         nodes = np.arange(G.nN)
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
-            order = np.argsort(ds)[::-1]
             e_of = G.edge_lookup(ps, nodes)      # หาครั้งเดียวต่อ origin ใช้ซ้ำได้ทุก K
             for ki in range(K):
                 dd = demands[ki].get(on)
                 if not dd: continue
                 acc = np.zeros(G.nN)
-                for dn, v in dd.items(): acc[dn] += v
+                dests = np.fromiter(dd.keys(), dtype=np.int64, count=len(dd))
+                np.add.at(acc, dests, np.fromiter(dd.values(), dtype=float, count=len(dd)))
                 if acc.sum() <= 0: continue
-                for node in order:
-                    if not np.isfinite(ds[node]): continue
+                for node in ancestors(ds, ps, dests):
                     e = e_of[node]
                     if e >= 0:
                         flows[ki][e] += acc[node]; acc[ps[node]] += acc[node]

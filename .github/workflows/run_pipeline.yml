@@ -117,6 +117,12 @@ jobs:
           python3 scripts/build_aadt_projection.py
           python3 scripts/07a_geolocate_aadt.py
 
+      # ด่านเร็ว (กราฟสุ่ม 300 node, ไม่กี่วินาที): ยืนยันว่า assignment แบบขนาน/serial
+      # ให้ flow เท่ากับวิธีอ้างอิงที่วนทุก node — จับการแก้ที่ทำผลเพี้ยนก่อนเสียเวลาชั่วโมง
+      - name: Assignment equivalence test
+        if: env.STAGES == 'full'
+        run: python3 scripts/_test_passign.py
+
       # ขั้นที่หนักที่สุด (กราฟ ~2.8M node) — พิมพ์ RAM และ exit code ให้ชัด
       # exit 137 = ถูก OOM kill (ไม่มี traceback) -> ลด run.dijkstra_batch / run.workers
       - name: District model (928 อำเภอ) + calibration + assignment

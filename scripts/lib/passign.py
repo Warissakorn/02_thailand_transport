@@ -46,6 +46,27 @@ def make_pool(nworkers, G):
         return ctx.Pool(nworkers, initializer=init, initargs=args), ctx.get_start_method()
 
 
+def ancestors(ds, ps, dests):
+    """node ที่อยู่บนเส้นทางสั้นสุดจาก origin ไปยัง dests เรียงระยะทางมาก -> น้อย
+
+    การกระจาย flow ขึ้นต้นไม้เส้นทางแตะเฉพาะ node เหล่านี้ (node อื่น acc=0 เสมอ)
+    เดิมวนทุก node ในกราฟ (2.76 ล้านต่อ origin ต่อ demand) ซึ่งทำให้ขั้น 13/14
+    ใช้เวลาระดับหลายชั่วโมง — ไล่ขึ้นจากปลายทางทีละชั้นแบบเวคเตอร์แทน
+    """
+    mask = np.zeros(len(ds), dtype=bool)
+    cur = np.asarray(dests, dtype=np.int64)
+    cur = cur[np.isfinite(ds[cur])]
+    while cur.size:
+        new = cur[~mask[cur]]
+        if not new.size:
+            break
+        mask[new] = True
+        p = ps[new]
+        cur = p[p >= 0]
+    sub = np.flatnonzero(mask)
+    return sub[np.argsort(ds[sub])[::-1]]
+
+
 def _edge_lookup(u, v):
     """ค้น edge index ของคู่ (u,v) จากตารางเรียงแล้วใน _S (เวคเตอร์; -1 = ไม่มี)"""
     u = np.asarray(u, dtype=np.int64); v = np.asarray(v, dtype=np.int64)
@@ -83,20 +104,17 @@ def _work(task):
                               return_predecessors=True)
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
-            order = np.argsort(ds)[::-1]
             e_of = _edge_lookup(ps, nodes)
             for ki in range(K):
                 dd = dem_list[ki].get(on)
                 if not dd:
                     continue
                 acc = np.zeros(nN)
-                for dn, v in dd.items():
-                    acc[dn] += v
+                dests = np.fromiter(dd.keys(), dtype=np.int64, count=len(dd))
+                np.add.at(acc, dests, np.fromiter(dd.values(), dtype=float, count=len(dd)))
                 if acc.sum() <= 0:
                     continue
-                for node in order:
-                    if not np.isfinite(ds[node]):
-                        continue
+                for node in ancestors(ds, ps, dests):
                     e = e_of[node]
                     if e >= 0:
                         flows[ki][e] += acc[node]
