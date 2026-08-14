@@ -27,10 +27,9 @@ DIRS = {
     "raw":        os.path.join(ROOT, "data", "raw"),
 }
 SOURCES = {
-    # หลาย URL = ลองไล่ตามลำดับ (geodata.ucdavis.edu ล่มเป็นช่วง ๆ)
-    # ตัวสำรองยังไม่เคยยืนยันว่าใช้ได้ — ถ้า 404 จะข้ามไปตัวถัดไปในไม่กี่วินาที
-    "gadm": (["https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_THA.gpkg",
-              "https://gadm.org/data/gpkg/gadm41_THA.gpkg"],
+    # ใส่ได้หลาย URL (ลองไล่ตามลำดับ) — ตอนนี้มีตัวเดียวเพราะยังไม่มี mirror ที่ยืนยันแล้ว
+    # geodata.ucdavis.edu ล่มเป็นช่วง ๆ : พึ่ง retry + cache แทน (โหลดสำเร็จครั้งเดียวก็พอ)
+    "gadm": (["https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_THA.gpkg"],
              os.path.join(DIRS["boundaries"], "gadm41_THA.gpkg")),
     "osm":  ("https://download.geofabrik.de/asia/thailand-latest.osm.pbf",
              os.path.join(DIRS["raw"], "thailand-latest.osm.pbf")),
@@ -61,15 +60,23 @@ socket.setdefaulttimeout(60)
 def dl(url, dst, retries=RETRIES):
     """url เป็น str หรือ list ของ URL สำรอง — ลองไล่จนกว่าจะได้"""
     urls = [url] if isinstance(url, str) else list(url)
-    last = None
+    errs = []
     for i, u in enumerate(urls):
         try:
             return _dl_one(u, dst, retries)
         except Exception as e:
-            last = e
+            errs.append((u, f"{type(e).__name__}: {e}"))
             if i + 1 < len(urls):
                 log(f"  เปลี่ยนไปใช้แหล่งสำรอง: {urls[i+1]}")
-    raise last
+    raise DownloadFailed(errs)
+
+
+class DownloadFailed(Exception):
+    """เก็บ error แยกตาม URL เพื่อให้สรุปท้ายบอกได้ว่าตัวไหนพังเพราะอะไร"""
+
+    def __init__(self, errors):
+        self.errors = errors
+        super().__init__("; ".join(f"{u} -> {e}" for u, e in errors))
 
 
 def _dl_one(url, dst, retries=RETRIES):
@@ -113,17 +120,18 @@ if __name__ == "__main__":
         try:
             dl(url, dst)
             status.append((k, "ok", ""))
+        except DownloadFailed as e:
+            status.append((k, "FAILED", e.errors))
         except Exception as e:
-            status.append((k, "FAILED", f"{type(e).__name__}: {e}"))
+            status.append((k, "FAILED", [(str(SOURCES[k][0]), f"{type(e).__name__}: {e}")]))
 
     log("")
     log("== สรุปแหล่งข้อมูล ==")
-    for k, st, msg in status:
-        log(f"  {k:16s} {st}{('  ' + msg) if msg else ''}")
+    for k, st, info in status:
+        log(f"  {k:16s} {st}")
         if st == "FAILED":
-            u = SOURCES[k][0]
-            for one in ([u] if isinstance(u, str) else u):
-                log(f"    URL: {one}")
+            for u, err in info:
+                log(f"    {u}\n      -> {err}")
     bad = [k for k, st, _ in status if st == "FAILED"]
     if bad:
         log(f"ดาวน์โหลดไม่สำเร็จ {len(bad)} แหล่ง: {', '.join(bad)}")
