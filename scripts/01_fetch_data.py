@@ -27,7 +27,10 @@ DIRS = {
     "raw":        os.path.join(ROOT, "data", "raw"),
 }
 SOURCES = {
-    "gadm": ("https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_THA.gpkg",
+    # หลาย URL = ลองไล่ตามลำดับ (geodata.ucdavis.edu ล่มเป็นช่วง ๆ)
+    # ตัวสำรองยังไม่เคยยืนยันว่าใช้ได้ — ถ้า 404 จะข้ามไปตัวถัดไปในไม่กี่วินาที
+    "gadm": (["https://geodata.ucdavis.edu/gadm/gadm4.1/gpkg/gadm41_THA.gpkg",
+              "https://gadm.org/data/gpkg/gadm41_THA.gpkg"],
              os.path.join(DIRS["boundaries"], "gadm41_THA.gpkg")),
     "osm":  ("https://download.geofabrik.de/asia/thailand-latest.osm.pbf",
              os.path.join(DIRS["raw"], "thailand-latest.osm.pbf")),
@@ -56,6 +59,20 @@ socket.setdefaulttimeout(60)
 
 
 def dl(url, dst, retries=RETRIES):
+    """url เป็น str หรือ list ของ URL สำรอง — ลองไล่จนกว่าจะได้"""
+    urls = [url] if isinstance(url, str) else list(url)
+    last = None
+    for i, u in enumerate(urls):
+        try:
+            return _dl_one(u, dst, retries)
+        except Exception as e:
+            last = e
+            if i + 1 < len(urls):
+                log(f"  เปลี่ยนไปใช้แหล่งสำรอง: {urls[i+1]}")
+    raise last
+
+
+def _dl_one(url, dst, retries=RETRIES):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     tmp = dst + ".part"
     for attempt in range(1, retries + 1):
@@ -104,7 +121,9 @@ if __name__ == "__main__":
     for k, st, msg in status:
         log(f"  {k:16s} {st}{('  ' + msg) if msg else ''}")
         if st == "FAILED":
-            log(f"    URL: {SOURCES[k][0]}")
+            u = SOURCES[k][0]
+            for one in ([u] if isinstance(u, str) else u):
+                log(f"    URL: {one}")
     bad = [k for k, st, _ in status if st == "FAILED"]
     if bad:
         log(f"ดาวน์โหลดไม่สำเร็จ {len(bad)} แหล่ง: {', '.join(bad)}")

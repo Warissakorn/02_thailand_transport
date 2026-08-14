@@ -77,19 +77,23 @@ jobs:
           path: |
             data/raw
             data/boundaries
-          key: srcdata-v1
+          key: srcdata-v1-
+          restore-keys: srcdata-v1-
 
       - name: 01 fetch data (gadm, osm, pop, aadt, targets)
         run: python3 scripts/01_fetch_data.py all
 
+      # if: always() — ถ้าแหล่งใดแหล่งหนึ่งล่ม ของที่โหลดสำเร็จแล้ว (OSM 311 MB, WorldPop)
+      # ต้องไม่หายไปกับ job ที่ล้ม รอบถัดไปจะได้เหลือแค่แหล่งที่ยังขาด
+      # คีย์ต่อ run: cache เก่าถูก restore ด้วย prefix แล้วบันทึกทับเป็นชุดที่ครบขึ้นเรื่อย ๆ
       - name: Save downloaded source data
-        if: steps.srccache.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: |
             data/raw
             data/boundaries
-          key: srcdata-v1
+          key: srcdata-v1-${{ github.run_id }}
 
       # 02a/02b คือขั้นที่เดิมทำด้วยมือนอกสคริปต์ (ogr2ogr + สร้าง TAZ ใน QGIS)
       # ผลลัพธ์ของทั้งคู่ถูก gitignore จึงต้องสร้างใหม่ทุกครั้งบนเครื่องเปล่า
