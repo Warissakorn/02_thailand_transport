@@ -68,19 +68,28 @@ jobs:
           python3 -c "import sys; sys.path.insert(0,'scripts'); from lib import scenario as sc; print(sc.describe())"
 
       # ข้อมูลดาวน์โหลด (OSM ~1 GB + WorldPop) ไม่เปลี่ยนบ่อย -> cache ไว้ข้ามรอบ
-      - name: Cache downloaded source data
-        uses: actions/cache@v4
+      # ใช้ restore/save แยกกัน เพราะ actions/cache แบบรวมจะ save เฉพาะตอน job สำเร็จ
+      # ที่ผ่านมา job ล้มที่ขั้นท้าย ๆ ทุกครั้ง cache จึงไม่เคยถูกบันทึกและต้องโหลดใหม่ทุกรอบ
+      - name: Restore downloaded source data
+        id: srccache
+        uses: actions/cache/restore@v4
         with:
           path: |
             data/raw
             data/boundaries
-          key: srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-${{ github.run_id }}
-          restore-keys: |
-            srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-
-            srcdata-
+          key: srcdata-v1
 
       - name: 01 fetch data (gadm, osm, pop, aadt, targets)
         run: python3 scripts/01_fetch_data.py all
+
+      - name: Save downloaded source data
+        if: steps.srccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw
+            data/boundaries
+          key: srcdata-v1
 
       # 02a/02b คือขั้นที่เดิมทำด้วยมือนอกสคริปต์ (ogr2ogr + สร้าง TAZ ใน QGIS)
       # ผลลัพธ์ของทั้งคู่ถูก gitignore จึงต้องสร้างใหม่ทุกครั้งบนเครื่องเปล่า
@@ -190,7 +199,13 @@ jobs:
         if: failure()
         run: |
           echo "== log ที่ถูกแก้ไขล่าสุด (ขั้นที่กำลังทำงานตอนพัง) =="
-          ls -t output/_*.log 2>/dev/null | head -3 | while read -r f; do
+          shopt -s nullglob
+          logs=(output/_*.log)
+          if [ ${#logs[@]} -eq 0 ]; then
+            echo "(ยังไม่มีไฟล์ log — ขั้นที่พังน่าจะเป็น 01 fetch ซึ่งพิมพ์ลง stdout ด้านบน)"
+            exit 0
+          fi
+          for f in $(ls -t "${logs[@]}" | head -3); do
             echo "::group::$f"; tail -n 40 "$f"; echo "::endgroup::"
           done
 
