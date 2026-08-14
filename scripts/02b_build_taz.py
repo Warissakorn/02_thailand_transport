@@ -17,8 +17,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lib.paths import ROOT as B, ensure, hard_exit   # noqa: E402
+from lib import boundaries as bd                     # noqa: E402
 
-GADM = B + r"\data\boundaries\gadm41_THA.gpkg"
 POP = B + r"\data\raw\tha_pop_2020_100m.tif"
 OUT_TAZ = B + r"\data\zones_taz\taz_provinces.gpkg"
 OUT_POP = B + r"\data\zones_taz\zone_population.gpkg"
@@ -54,9 +54,12 @@ def main():
     app.initQgis()
     Processing.initialize()
 
-    prov = QgsVectorLayer(str(GADM) + "|layername=ADM_ADM_1", "prov", "ogr")
-    assert prov.isValid(), "ไม่พบ %s — รัน scripts/01_fetch_data.py gadm ก่อน" % GADM
-    log("GADM ADM_1:", prov.featureCount(), "จังหวัด")
+    # GADM เป็นหลัก; ถ้าโหลดไม่ได้ใช้ขอบเขตจาก OSM (scripts/02c_boundaries_osm.py)
+    uri = bd.adm1_uri()
+    prov = QgsVectorLayer(uri, "prov", "ogr")
+    assert prov.isValid(), "ไม่พบ %s — รัน scripts/01_fetch_data.py gadm หรือ 02c_boundaries_osm.py ก่อน" % uri
+    log("ที่มาขอบเขต:", bd.source(), "| ADM_1:", prov.featureCount(), "จังหวัด")
+    bd.write_source()
 
     fixed = processing.run("native:fixgeometries", {'INPUT': prov, 'OUTPUT': 'memory:'})['OUTPUT']
 

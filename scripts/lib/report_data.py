@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 
 from .paths import ROOT, REPORT, MODEL
 from . import scenario as sc
+from . import boundaries as bd
 
 TABLES = REPORT + r"\tables"
 FIGURES = REPORT + r"\figures"
@@ -61,6 +62,11 @@ def run_meta():
         "scenario": sc.name(),
         "เวลาที่สร้างรายงาน": datetime.now(tz).strftime("%Y-%m-%d %H:%M น. (ICT)"),
     }
+    # ที่มาของขอบเขตการปกครอง: gadm (ปกติ) หรือ osm (สำรองตอนต้นทาง GADM ล่ม)
+    # ผลจากขอบเขตสองชุดเทียบกันตรง ๆ ไม่ได้ จึงต้องติดมากับรายงานเสมอ
+    src = bd.read_source()
+    if src:
+        meta["ขอบเขตการปกครอง"] = src
     if sha:
         meta["commit"] = sha[:8]
     msg = _git("log", "-1", "--pretty=%s")

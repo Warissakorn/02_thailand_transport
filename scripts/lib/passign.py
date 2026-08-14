@@ -5,6 +5,7 @@
 โมดูลนี้ตั้งใจ **ไม่ import qgis** เพื่อให้ worker (spawn บน Windows) เบา/เร็ว
 ใช้ได้กับกราฟ directed/undirected เดียวกับ lib.transport_graph.Graph
 """
+import os
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
@@ -13,14 +14,69 @@ from scipy.sparse.csgraph import dijkstra
 _S = {}
 
 
-def init(Eu, Ev, Eoneway, edge_of, nN, nE, directed):
+def init(Eu, Ev, Eoneway, lk_key, lk_edge, nN, nE, directed):
     _S['Eu'] = np.asarray(Eu)
     _S['Ev'] = np.asarray(Ev)
     _S['two'] = ~np.asarray(Eoneway).astype(bool)   # edge ที่วิ่งได้สองทิศ
-    _S['edge_of'] = edge_of
+    # ตาราง (u,v)->edge แบบ array (แทน dict 6.5 ล้านคีย์ที่เคยส่งให้ worker ทุกตัว)
+    _S['lk_key'] = np.asarray(lk_key)
+    _S['lk_edge'] = np.asarray(lk_edge)
     _S['nN'] = int(nN)
     _S['nE'] = int(nE)
     _S['directed'] = bool(directed)
+
+
+def make_pool(nworkers, G):
+    """สร้าง Pool ให้ประหยัดหน่วยความจำที่สุดเท่าที่ OS อนุญาต
+
+    ปัญหา: initargs ของ Pool ถูก pickle ส่งให้ worker ทุกตัว ตารางค้น edge จึงถูกสำเนา
+    เป็นทวีคูณตามจำนวน worker (ตอนเป็น dict คือระดับ GB ต่อสำเนา)
+
+    บน Linux (fork) จึงตั้งค่า global ในโปรเซสแม่ก่อน แล้ว fork เอา — worker เห็นข้อมูล
+    เดียวกันแบบ copy-on-write ไม่ต้องสำเนา ส่วน Windows (spawn) ใช้ initializer ตามเดิม
+    """
+    import multiprocessing as _mp
+    args = (G.Eu, G.Ev, G.Eoneway, G.lk_key, G.lk_edge, G.nN, G.nE, G.directed)
+    try:
+        ctx = _mp.get_context("fork")
+        init(*args)                      # ตั้งในแม่ -> ลูกได้มาแบบแชร์หน้า memory
+        return ctx.Pool(nworkers), "fork (shared)"
+    except (ValueError, AttributeError, OSError):
+        ctx = _mp.get_context()
+        return ctx.Pool(nworkers, initializer=init, initargs=args), ctx.get_start_method()
+
+
+def ancestors(ds, ps, dests):
+    """node ที่อยู่บนเส้นทางสั้นสุดจาก origin ไปยัง dests เรียงระยะทางมาก -> น้อย
+
+    การกระจาย flow ขึ้นต้นไม้เส้นทางแตะเฉพาะ node เหล่านี้ (node อื่น acc=0 เสมอ)
+    เดิมวนทุก node ในกราฟ (2.76 ล้านต่อ origin ต่อ demand) ซึ่งทำให้ขั้น 13/14
+    ใช้เวลาระดับหลายชั่วโมง — ไล่ขึ้นจากปลายทางทีละชั้นแบบเวคเตอร์แทน
+    """
+    mask = np.zeros(len(ds), dtype=bool)
+    cur = np.asarray(dests, dtype=np.int64)
+    cur = cur[np.isfinite(ds[cur])]
+    while cur.size:
+        new = cur[~mask[cur]]
+        if not new.size:
+            break
+        mask[new] = True
+        p = ps[new]
+        cur = p[p >= 0]
+    sub = np.flatnonzero(mask)
+    return sub[np.argsort(ds[sub])[::-1]]
+
+
+def _edge_lookup(u, v):
+    """ค้น edge index ของคู่ (u,v) จากตารางเรียงแล้วใน _S (เวคเตอร์; -1 = ไม่มี)"""
+    u = np.asarray(u, dtype=np.int64); v = np.asarray(v, dtype=np.int64)
+    lk_key = _S['lk_key']; lk_edge = _S['lk_edge']
+    if len(lk_key) == 0:
+        return np.full(u.shape, -1, dtype=np.int64)
+    key = u * np.int64(_S['nN']) + v
+    pos = np.minimum(np.searchsorted(lk_key, key), max(len(lk_key) - 1, 0))
+    hit = (lk_key[pos] == key) & (u >= 0) & (v >= 0)
+    return np.where(hit, lk_edge[pos], -1)
 
 
 def _csr(costs):
@@ -36,36 +92,33 @@ def _work(task):
     (จำกัดเฉพาะ origins ในชิ้นนี้) -> คืน list ของ K flow arrays (nE,)"""
     costs, origins, dem_list = task
     csr = _csr(np.asarray(costs, dtype=float))
-    nE = _S['nE']; nN = _S['nN']; edge_of = _S['edge_of']; directed = _S['directed']
+    nE = _S['nE']; nN = _S['nN']; directed = _S['directed']
+    nodes = np.arange(nN)
     K = len(dem_list)
     flows = [np.zeros(nE) for _ in range(K)]
-    B = 40   # batch dijkstra ภายใน worker (คุมหน่วยความจำ pred = B x nN x 4 ไบต์)
+    # batch dijkstra ภายใน worker (dmat+pred = B x nN x 12 ไบต์ ต่อ worker)
+    B = max(int(os.environ.get("TT_DIJKSTRA_BATCH", "32")), 1)
     for s0 in range(0, len(origins), B):
         srcs = origins[s0:s0 + B]
         dmat, pred = dijkstra(csr, directed=directed, indices=srcs,
                               return_predecessors=True)
         for bi, on in enumerate(srcs):
             ds = dmat[bi]; ps = pred[bi]
-            order = np.argsort(ds)[::-1]
+            e_of = _edge_lookup(ps, nodes)
             for ki in range(K):
                 dd = dem_list[ki].get(on)
                 if not dd:
                     continue
                 acc = np.zeros(nN)
-                for dn, v in dd.items():
-                    acc[dn] += v
+                dests = np.fromiter(dd.keys(), dtype=np.int64, count=len(dd))
+                np.add.at(acc, dests, np.fromiter(dd.values(), dtype=float, count=len(dd)))
                 if acc.sum() <= 0:
                     continue
-                for node in order:
-                    if not np.isfinite(ds[node]):
-                        continue
-                    p = ps[node]
-                    if p < 0:
-                        continue
-                    e = edge_of.get((p, node))
-                    if e is not None:
+                for node in ancestors(ds, ps, dests):
+                    e = e_of[node]
+                    if e >= 0:
                         flows[ki][e] += acc[node]
-                        acc[p] += acc[node]
+                        acc[ps[node]] += acc[node]
     return flows
 
 

@@ -1,0 +1,59 @@
+name: Validate
+
+# ตรวจเร็ว (~1 นาที) สำหรับใช้เป็น required status check ของ branch main
+# ไม่ต้องใช้ QGIS และไม่ดาวน์โหลดข้อมูล — จับความผิดพลาดที่พบบ่อยก่อนเสียเวลา
+# รันไพป์ไลน์เต็ม 40+ นาที (ดู .github/workflows/run_pipeline.yml)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # สคริปต์ import qgis ตอนรันจริงเท่านั้น การ compile จึงทำได้โดยไม่ต้องมี QGIS
+      - name: Compile every script
+        run: python3 -m compileall -q scripts config
+
+      - name: Validate inputs/ and scenarios
+        run: python3 scripts/_check_inputs.py
+
+      # ผลลัพธ์ที่ commit ไว้ต้องยังสร้างเว็บได้ — กันหน้าเว็บพังตอน deploy ขึ้น Pages
+      - name: Build results website
+        run: |
+          python3 scripts/17_build_site.py
+          test -s site/index.html
+
+      - name: Run library tests that need no QGIS
+        run: |
+          python3 - <<'PY'
+          import importlib.util, sys
+          # lib.paths / lib.scenario เป็นแกนที่ทุกสคริปต์พึ่ง — ต้อง import ได้เสมอ
+          sys.path.insert(0, "scripts")
+          from lib.paths import ROOT, hard_exit          # noqa: F401
+          from lib import scenario as sc
+          assert str(ROOT), "หา ROOT ไม่เจอ"
+          assert sc.load(), "โหลด scenario base ไม่ได้"
+          print(sc.describe())
+          PY

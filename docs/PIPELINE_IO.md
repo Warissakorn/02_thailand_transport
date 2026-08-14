@@ -52,6 +52,7 @@
 | `k_factor` | สัดส่วนปริมาณชั่วโมงเร่งด่วนต่อรายวัน | 0.09 |
 | `eq_iter` | รอบ MSA equilibrium ต่อ component (ลดลง = เร็วขึ้น/หยาบขึ้น) | 8 |
 | `workers` | process ขนานของขั้น 13/14 (0 = ตามจำนวนคอร์ สูงสุด 4) | 2 |
+| `dijkstra_batch` | origin ต่อรอบ dijkstra — ตัวคุมหน่วยความจำหลัก (1 origin ≈ 33 MB บนกราฟอำเภอ) | 32 |
 
 ลบ key ใดออก = ใช้ค่าตั้งต้นของ key นั้น การพิมพ์ชื่อ key ผิดจะถูกข้าม (ไม่ทับค่าใด) —
 ตรวจได้จากบรรทัด `scenario=...` ในขั้น *Show environment* ของ run และในหน้าเว็บผลลัพธ์
@@ -61,7 +62,8 @@
 ลำดับการรันเหมือนเดิมทุกประการ (ดู `README.md`) โดย workflow จัดกลุ่มเป็น step:
 
 ```
-01 fetch → 02a สกัดถนนจาก OSM → 02b TAZ+ประชากร → 02 โครงข่ายสะอาด
+01 fetch → 02a สกัดถนนจาก OSM → [02c ขอบเขตจาก OSM: เฉพาะเมื่อไม่มีไฟล์ GADM]
+→ 02b TAZ+ประชากร → 02 โครงข่ายสะอาด
 → build_* (centroid → ราง/น้ำ/อากาศ/เรือสินค้า → connectors)
 → 03,04,04b,05a,05b (จังหวัด) → build_aadt_projection, 07a
 → 08a, 13 calibrate, 14 assignment → 15 report → 09a,09d,10a,10b,11, build_project
@@ -89,3 +91,12 @@
 ```
 
 อยากรันด้วยมือ/เลือก scenario อื่น: **Actions → Run transport model pipeline → Run workflow**
+
+## 6. การตรวจก่อน merge
+
+`main` ถูกป้องกันไว้: ต้องผ่าน PR และ job `validate` ต้องเขียว (ดู [`BRANCH_PROTECTION.md`](BRANCH_PROTECTION.md))
+ตรวจแบบเดียวกันบนเครื่องตัวเองก่อน push ได้ด้วย:
+
+```bash
+python3 scripts/_check_inputs.py   # ไฟล์นำเข้าครบ + scenario ทุก key สะกดถูกและอยู่ในช่วง
+```

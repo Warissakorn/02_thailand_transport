@@ -44,6 +44,9 @@ env:
   STAGES: ${{ inputs.stages || 'full' }}
   # runner ไม่มีจอ — Qt ที่มากับ QGIS ต้องเรนเดอร์แบบ offscreen ไม่งั้น abort
   QT_QPA_PLATFORM: offscreen
+  # ตั้ง repository variable ชื่อ GADM_URL ได้ถ้าต้นทาง GADM ล่มยาว
+  # (Settings -> Secrets and variables -> Actions -> Variables) ดู docs/DATA_SOURCES.md
+  TT_URL_GADM: ${{ vars.GADM_URL }}
 
 jobs:
   pipeline:
@@ -68,19 +71,39 @@ jobs:
           python3 -c "import sys; sys.path.insert(0,'scripts'); from lib import scenario as sc; print(sc.describe())"
 
       # ข้อมูลดาวน์โหลด (OSM ~1 GB + WorldPop) ไม่เปลี่ยนบ่อย -> cache ไว้ข้ามรอบ
-      - name: Cache downloaded source data
-        uses: actions/cache@v4
+      # ใช้ restore/save แยกกัน เพราะ actions/cache แบบรวมจะ save เฉพาะตอน job สำเร็จ
+      # ที่ผ่านมา job ล้มที่ขั้นท้าย ๆ ทุกครั้ง cache จึงไม่เคยถูกบันทึกและต้องโหลดใหม่ทุกรอบ
+      - name: Restore downloaded source data
+        id: srccache
+        uses: actions/cache/restore@v4
         with:
           path: |
             data/raw
             data/boundaries
-          key: srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-${{ github.run_id }}
-          restore-keys: |
-            srcdata-${{ hashFiles('scripts/01_fetch_data.py') }}-
-            srcdata-
+          key: srcdata-v1-
+          restore-keys: srcdata-v1-
 
-      - name: 01 fetch data (gadm, osm, pop, aadt, targets)
-        run: python3 scripts/01_fetch_data.py all
+      # แยก gadm ออกมา: ต้นทาง geodata.ucdavis.edu ล่มเป็นช่วง ๆ ยาวหลายชั่วโมง
+      # ถ้าโหลดไม่ได้ก็ยังเดินต่อได้ด้วยขอบเขตสำรองที่สกัดจาก OSM (ขั้น 02c)
+      - name: 01 fetch data (osm, pop, aadt, targets)
+        run: python3 scripts/01_fetch_data.py osm pop aadt target_freight target_pax target_intercity
+
+      - name: 01 fetch data (gadm — ไม่บังคับ)
+        run: |
+          python3 scripts/01_fetch_data.py gadm \
+            || echo "::warning::โหลด GADM ไม่ได้ — จะใช้ขอบเขตการปกครองสำรองจาก OSM (ขั้น 02c)"
+
+      # if: always() — ถ้าแหล่งใดแหล่งหนึ่งล่ม ของที่โหลดสำเร็จแล้ว (OSM 311 MB, WorldPop)
+      # ต้องไม่หายไปกับ job ที่ล้ม รอบถัดไปจะได้เหลือแค่แหล่งที่ยังขาด
+      # คีย์ต่อ run: cache เก่าถูก restore ด้วย prefix แล้วบันทึกทับเป็นชุดที่ครบขึ้นเรื่อย ๆ
+      - name: Save downloaded source data
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw
+            data/boundaries
+          key: srcdata-v1-${{ github.run_id }}
 
       # 02a/02b คือขั้นที่เดิมทำด้วยมือนอกสคริปต์ (ogr2ogr + สร้าง TAZ ใน QGIS)
       # ผลลัพธ์ของทั้งคู่ถูก gitignore จึงต้องสร้างใหม่ทุกครั้งบนเครื่องเปล่า
@@ -88,6 +111,8 @@ jobs:
         if: env.STAGES != 'fetch'
         run: |
           python3 scripts/02a_extract_osm.py
+          # 02c รันเฉพาะตอนไม่มี GADM (สกัด multipolygon จาก pbf 311 MB กินเวลาหลายนาที)
+          [ -f data/boundaries/gadm41_THA.gpkg ] || python3 scripts/02c_boundaries_osm.py
           python3 scripts/02b_build_taz.py
           python3 scripts/02_prep_network_taz.py
 
@@ -117,12 +142,30 @@ jobs:
           python3 scripts/build_aadt_projection.py
           python3 scripts/07a_geolocate_aadt.py
 
+      # ด่านเร็ว (กราฟสุ่ม 300 node, ไม่กี่วินาที): ยืนยันว่า assignment แบบขนาน/serial
+      # ให้ flow เท่ากับวิธีอ้างอิงที่วนทุก node — จับการแก้ที่ทำผลเพี้ยนก่อนเสียเวลาชั่วโมง
+      - name: Assignment equivalence test
+        if: env.STAGES == 'full'
+        run: python3 scripts/_test_passign.py
+
+      # ขั้นที่หนักที่สุด (กราฟ ~2.8M node) — พิมพ์ RAM และ exit code ให้ชัด
+      # exit 137 = ถูก OOM kill (ไม่มี traceback) -> ลด run.dijkstra_batch / run.workers
       - name: District model (928 อำเภอ) + calibration + assignment
         if: env.STAGES == 'full'
         run: |
-          python3 scripts/08a_district_prep.py
-          python3 scripts/13_calibrate_params.py
-          python3 scripts/14_final_assignment.py
+          echo "RAM ที่มี:"; free -m | head -2
+          for s in 08a_district_prep 13_calibrate_params 14_final_assignment; do
+            echo "--- $s ---"
+            set +e
+            python3 "scripts/$s.py" 2>&1 | tee -a output/_stage_district.log
+            code=${PIPESTATUS[0]}
+            set -e
+            { echo "$s exit code: $code"; free -m | head -2; } | tee -a output/_stage_district.log
+            if [ "$code" -ne 0 ]; then
+              [ "$code" -eq 137 ] && echo "::error::$s ถูก kill เพราะหน่วยความจำไม่พอ (OOM)"
+              exit "$code"
+            fi
+          done
 
       - name: Report outputs (tables + figures)
         if: env.STAGES == 'full'
@@ -172,7 +215,13 @@ jobs:
         if: failure()
         run: |
           echo "== log ที่ถูกแก้ไขล่าสุด (ขั้นที่กำลังทำงานตอนพัง) =="
-          ls -t output/_*.log 2>/dev/null | head -3 | while read -r f; do
+          shopt -s nullglob
+          logs=(output/_*.log)
+          if [ ${#logs[@]} -eq 0 ]; then
+            echo "(ยังไม่มีไฟล์ log — ขั้นที่พังน่าจะเป็น 01 fetch ซึ่งพิมพ์ลง stdout ด้านบน)"
+            exit 0
+          fi
+          for f in $(ls -t "${logs[@]}" | head -3); do
             echo "::group::$f"; tail -n 40 "$f"; echo "::endgroup::"
           done
 

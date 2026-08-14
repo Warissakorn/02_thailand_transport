@@ -33,10 +33,12 @@ BACKBONE = ('motorway','motorway_link','trunk','trunk_link','primary','primary_l
 
 def main():
     app = QgsApplication([], False); app.initQgis(); Processing.initialize()
-    gpkg = B + r"\data\boundaries\gadm41_THA.gpkg"
+    from lib import boundaries as bd     # GADM หลัก / OSM สำรอง
 
     # 1) district TAZ 32647 + district_id
-    adm2 = QgsVectorLayer(gpkg + "|layername=ADM_ADM_2", "d", "ogr")
+    adm2 = QgsVectorLayer(bd.adm2_uri(), "d", "ogr")
+    assert adm2.isValid(), "ไม่พบชั้นอำเภอ: %s" % bd.adm2_uri()
+    log("ที่มาขอบเขต:", bd.read_source() or bd.source())
     rep = processing.run("native:reprojectlayer", {'INPUT': adm2, 'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:32647'), 'OUTPUT': 'memory:'})['OUTPUT']
     rep.startEditing(); rep.addAttribute(QgsField('district_id', QVariant.Int)); rep.updateFields()
     di = rep.fields().indexOf('district_id')

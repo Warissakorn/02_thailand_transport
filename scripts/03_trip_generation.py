@@ -48,7 +48,8 @@ def main():
     from processing.core.Processing import Processing
     app = QgsApplication([], False); app.initQgis(); Processing.initialize()
 
-    prov4326=QgsVectorLayer(BASE+r"\data\boundaries\gadm41_THA.gpkg|layername=ADM_ADM_1","p","ogr")
+    from lib import boundaries as bd     # GADM หลัก / OSM สำรอง
+    prov4326=QgsVectorLayer(bd.adm1_uri(),"p","ogr")
     taz=QgsVectorLayer(BASE+r"\data\zones_taz\taz_provinces.gpkg|layername=taz_provinces","taz","ogr")
     popl=QgsVectorLayer(BASE+r"\data\zones_taz\zone_population.gpkg|layername=zone_population","pp","ogr")
     pop={f['GID_1']:(f['pop_sum'] or 0) for f in popl.getFeatures()}
