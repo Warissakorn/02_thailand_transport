@@ -131,8 +131,10 @@ def part_a():
             if d < bd: bd = d; best = fid-1
         if best is not None and bd <= SNAP_TOL:
             st_edge.append(best); st_pax.append(f['pax_pcu']); st_frg.append(f['frg_pcu']); st_tot.append(f['aadt'])
-    st_edge = np.array(st_edge); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
+    st_edge = np.array(st_edge, dtype=np.int64); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
     log("stations snapped to edges: %d" % len(st_edge))
+    if st_edge.size == 0:
+        raise SystemExit("ไม่มีสถานี AADT ติดโครงข่ายเลย — ตรวจ output/_geo.log (ขั้น 07a) ก่อนรัน 13")
 
     # score per beta (แยกสาย)
     curves = []
