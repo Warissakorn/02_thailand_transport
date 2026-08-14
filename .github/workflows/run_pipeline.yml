@@ -44,6 +44,9 @@ env:
   STAGES: ${{ inputs.stages || 'full' }}
   # runner ไม่มีจอ — Qt ที่มากับ QGIS ต้องเรนเดอร์แบบ offscreen ไม่งั้น abort
   QT_QPA_PLATFORM: offscreen
+  # ตั้ง repository variable ชื่อ GADM_URL ได้ถ้าต้นทาง GADM ล่มยาว
+  # (Settings -> Secrets and variables -> Actions -> Variables) ดู docs/DATA_SOURCES.md
+  TT_URL_GADM: ${{ vars.GADM_URL }}
 
 jobs:
   pipeline:

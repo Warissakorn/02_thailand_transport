@@ -57,6 +57,21 @@ BACKOFF = [5, 15, 45]      # วินาที ก่อนลองใหม�
 socket.setdefaulttimeout(60)
 
 
+def urls_for(key):
+    """URL ของแหล่ง key โดยให้ตัวที่ตั้งผ่าน env TT_URL_<KEY> มาก่อนเสมอ
+
+    ใช้เมื่อแหล่งต้นทางล่มยาว: อัปไฟล์ขึ้นที่เก็บของตัวเอง (เช่น GitHub Release)
+    แล้วตั้งตัวแปรไว้ ไม่ต้องแก้โค้ด — ดู docs/DATA_SOURCES.md
+    """
+    u = SOURCES[key][0]
+    urls = [u] if isinstance(u, str) else list(u)
+    override = (os.environ.get("TT_URL_" + key.upper()) or "").strip()
+    if override:
+        urls.insert(0, override)
+        log(f"  ใช้ URL ที่ตั้งไว้ผ่าน TT_URL_{key.upper()}: {override}")
+    return urls
+
+
 def dl(url, dst, retries=RETRIES):
     """url เป็น str หรือ list ของ URL สำรอง — ลองไล่จนกว่าจะได้"""
     urls = [url] if isinstance(url, str) else list(url)
@@ -118,7 +133,7 @@ if __name__ == "__main__":
             status.append((k, "cached", ""))
             continue
         try:
-            dl(url, dst)
+            dl(urls_for(k), dst)
             status.append((k, "ok", ""))
         except DownloadFailed as e:
             status.append((k, "FAILED", e.errors))
