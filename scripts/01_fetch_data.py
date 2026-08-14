@@ -10,7 +10,18 @@ _OPENER = urllib.request.build_opener(urllib.request.HTTPSHandler(context=_CTX))
 _OPENER.addheaders = [("User-Agent", "Mozilla/5.0")]
 urllib.request.install_opener(_OPENER)
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get("TT_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# เขียน log ของตัวเองเหมือนสคริปต์อื่น ๆ เพื่อให้ step ดัมพ์ log ท้าย job เห็นด้วยว่า
+# แหล่งไหนล้ม (เดิมพิมพ์ลง stdout อย่างเดียว ต้องไล่หากลาง log ของ job)
+os.makedirs(os.path.join(ROOT, "output"), exist_ok=True)
+LOG = open(os.path.join(ROOT, "output", "_01.log"), "w", encoding="utf-8")
+
+
+def log(*a):
+    msg = " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 DIRS = {
     "boundaries": os.path.join(ROOT, "data", "boundaries"),
     "raw":        os.path.join(ROOT, "data", "raw"),
@@ -54,28 +65,48 @@ def dl(url, dst, retries=RETRIES):
             if total > 0 and done - last[0] > 10 * 1048576:
                 last[0] = done
                 print(f"  {done/1048576:6.1f}/{total/1048576:.1f} MB  ({done*100/total:4.1f}%)  {done/1048576/(time.time()-t0+1e-9):.1f} MB/s", flush=True)
-        print(f"downloading {url}" + (f" (ครั้งที่ {attempt}/{retries})" if attempt > 1 else ""), flush=True)
+        log(f"downloading {url}" + (f" (ครั้งที่ {attempt}/{retries})" if attempt > 1 else ""))
         try:
             urllib.request.urlretrieve(url, tmp, hook)
             os.replace(tmp, dst)
-            print(f"DONE -> {dst}  ({os.path.getsize(dst)/1048576:.1f} MB)", flush=True)
+            log(f"DONE -> {dst}  ({os.path.getsize(dst)/1048576:.1f} MB)")
             return
         except Exception as e:
             if os.path.exists(tmp):
                 os.remove(tmp)
             if attempt == retries:
-                print(f"FAILED after {retries} attempts: {url}\n  {type(e).__name__}: {e}", flush=True)
+                log(f"FAILED after {retries} attempts: {url}\n  {type(e).__name__}: {e}")
                 raise
             wait = BACKOFF[min(attempt - 1, len(BACKOFF) - 1)]
-            print(f"  ผิดพลาด ({type(e).__name__}: {e}) — รอ {wait}s แล้วลองใหม่", flush=True)
+            log(f"  ผิดพลาด ({type(e).__name__}: {e}) — รอ {wait}s แล้วลองใหม่")
             time.sleep(wait)
 
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
     keys = ["gadm", "osm", "pop", "aadt", "target_freight", "target_pax", "target_intercity"] if what == "all" else [what]
+    # ไม่หยุดที่แหล่งแรกที่ล้ม — ลองให้ครบทุกแหล่งก่อน แล้วสรุปทีเดียวว่าแหล่งไหนใช้ไม่ได้
+    # (แหล่งเป็นเซิร์ฟเวอร์สาธารณะคนละเจ้า ล่มทีละเจ้าได้)
+    status = []
     for k in keys:
         url, dst = SOURCES[k]
         if os.path.exists(dst):
-            print(f"skip {k}: exists ({os.path.getsize(dst)/1048576:.1f} MB)", flush=True)
-        else:
+            log(f"skip {k}: exists ({os.path.getsize(dst)/1048576:.1f} MB)")
+            status.append((k, "cached", ""))
+            continue
+        try:
             dl(url, dst)
+            status.append((k, "ok", ""))
+        except Exception as e:
+            status.append((k, "FAILED", f"{type(e).__name__}: {e}"))
+
+    log("")
+    log("== สรุปแหล่งข้อมูล ==")
+    for k, st, msg in status:
+        log(f"  {k:16s} {st}{('  ' + msg) if msg else ''}")
+        if st == "FAILED":
+            log(f"    URL: {SOURCES[k][0]}")
+    bad = [k for k, st, _ in status if st == "FAILED"]
+    if bad:
+        log(f"ดาวน์โหลดไม่สำเร็จ {len(bad)} แหล่ง: {', '.join(bad)}")
+        sys.exit(1)
+    log("DONE")
