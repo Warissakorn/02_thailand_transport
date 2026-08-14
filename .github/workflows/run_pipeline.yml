@@ -83,8 +83,15 @@ jobs:
           key: srcdata-v1-
           restore-keys: srcdata-v1-
 
-      - name: 01 fetch data (gadm, osm, pop, aadt, targets)
-        run: python3 scripts/01_fetch_data.py all
+      # แยก gadm ออกมา: ต้นทาง geodata.ucdavis.edu ล่มเป็นช่วง ๆ ยาวหลายชั่วโมง
+      # ถ้าโหลดไม่ได้ก็ยังเดินต่อได้ด้วยขอบเขตสำรองที่สกัดจาก OSM (ขั้น 02c)
+      - name: 01 fetch data (osm, pop, aadt, targets)
+        run: python3 scripts/01_fetch_data.py osm pop aadt target_freight target_pax target_intercity
+
+      - name: 01 fetch data (gadm — ไม่บังคับ)
+        run: |
+          python3 scripts/01_fetch_data.py gadm \
+            || echo "::warning::โหลด GADM ไม่ได้ — จะใช้ขอบเขตการปกครองสำรองจาก OSM (ขั้น 02c)"
 
       # if: always() — ถ้าแหล่งใดแหล่งหนึ่งล่ม ของที่โหลดสำเร็จแล้ว (OSM 311 MB, WorldPop)
       # ต้องไม่หายไปกับ job ที่ล้ม รอบถัดไปจะได้เหลือแค่แหล่งที่ยังขาด
@@ -104,6 +111,8 @@ jobs:
         if: env.STAGES != 'fetch'
         run: |
           python3 scripts/02a_extract_osm.py
+          # 02c รันเฉพาะตอนไม่มี GADM (สกัด multipolygon จาก pbf 311 MB กินเวลาหลายนาที)
+          [ -f data/boundaries/gadm41_THA.gpkg ] || python3 scripts/02c_boundaries_osm.py
           python3 scripts/02b_build_taz.py
           python3 scripts/02_prep_network_taz.py
 
