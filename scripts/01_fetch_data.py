@@ -121,8 +121,15 @@ def _dl_one(url, dst, retries=RETRIES):
             time.sleep(wait)
 
 if __name__ == "__main__":
-    what = sys.argv[1] if len(sys.argv) > 1 else "all"
-    keys = ["gadm", "osm", "pop", "aadt", "target_freight", "target_pax", "target_intercity"] if what == "all" else [what]
+    # รับได้หลายแหล่งในครั้งเดียว (workflow เรียกทุกแหล่งยกเว้น gadm แล้วค่อยเรียก gadm แยก)
+    # และฟ้องทันทีถ้าสะกดผิด — เดิมอ่านแค่ argv[1] จึงเมินแหล่งที่เหลืออย่างเงียบ ๆ
+    ALL = ["gadm", "osm", "pop", "aadt", "target_freight", "target_pax", "target_intercity"]
+    args = sys.argv[1:] or ["all"]
+    keys = ALL if "all" in args else args
+    unknown = [k for k in keys if k not in SOURCES]
+    if unknown:
+        log("ไม่รู้จักแหล่ง: %s (มีให้เลือก: all, %s)" % (", ".join(unknown), ", ".join(ALL)))
+        sys.exit(2)
     # ไม่หยุดที่แหล่งแรกที่ล้ม — ลองให้ครบทุกแหล่งก่อน แล้วสรุปทีเดียวว่าแหล่งไหนใช้ไม่ได้
     # (แหล่งเป็นเซิร์ฟเวอร์สาธารณะคนละเจ้า ล่มทีละเจ้าได้)
     status = []
