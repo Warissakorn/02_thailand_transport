@@ -40,8 +40,9 @@ calibrated:
 
 run:
   k_factor: 0.09            # สัดส่วนปริมาณชั่วโมงเร่งด่วนต่อปริมาณรายวัน
-  eq_iter: 8                # รอบ MSA equilibrium ต่อ component
-                            # (ลดเหลือ 3-4 ถ้ารันบน runner ฟรีแล้วเวลาไม่พอ)
+  eq_iter: 3                # รอบ MSA equilibrium ต่อ component
+                            # 8 ทำให้รอบ full ชนเพดาน 330 นาทีของ runner ฟรี (14 ส.ค. 2569)
+                            # เครื่องตัวเองที่ไม่มีเพดานเวลาตั้งกลับเป็น 8 ได้
   dijkstra_batch: 32        # จำนวน origin ต่อรอบ dijkstra
                             # กราฟอำเภอ 1 origin ใช้ RAM ~33 MB -> 32 = ~1 GB ต่อรอบ
                             # เครื่อง RAM เยอะตั้ง 120-150 ได้ (เร็วขึ้นเล็กน้อย)

@@ -223,7 +223,8 @@ jobs:
       # หาได้ทันทีโดยไม่ต้องไล่อ่านทั้งหมด (สคริปต์เขียนรายละเอียดลง output/_*.log)
       # stage calib รันเพื่อดู log โดยเฉพาะ จึงดัมป์ให้เห็นแม้ job จะสำเร็จ
       - name: Script logs of the failing stage
-        if: failure() || env.STAGES == 'calib'
+        # always(): รอบที่ชนเพดานเวลาถูกนับเป็น cancelled ไม่ใช่ failure — เดิม log จึงหายไปทั้งรอบ
+        if: always()
         run: |
           if [ -f output/_geo.log ]; then
             echo "::group::output/_geo.log (ขั้น 07a)"; tail -n 25 output/_geo.log; echo "::endgroup::"

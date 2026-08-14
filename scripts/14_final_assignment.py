@@ -24,7 +24,12 @@ B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ เท่านั้น (กัน worker process spawn มา truncate log)
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+_T0 = __import__("time").time()
+def log(*a):
+    # ใส่เวลาที่ใช้ไปด้วย: รอบ full ชนเพดาน 330 นาทีโดยไม่รู้ว่าเวลาหมดไปกับขั้นไหน
+    msg = "[%5.1f นาที] " % ((__import__("time").time() - _T0) / 60.0) + " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 from lib import scenario as sc
 K_FACTOR = sc.get("k_factor", 0.09)   # สัดส่วนชั่วโมงเร่งด่วนของปริมาณรายวัน (สมมติฐานตามแนวปฏิบัติ; ดู METHODOLOGY)

@@ -21,7 +21,12 @@ B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ (กัน worker spawn มา truncate log)
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+_T0 = __import__("time").time()
+def log(*a):
+    # ใส่เวลาที่ใช้ไปด้วย: รอบ full ชนเพดาน 330 นาทีโดยไม่รู้ว่าเวลาหมดไปกับขั้นไหน
+    msg = "[%5.1f นาที] " % ((__import__("time").time() - _T0) / 60.0) + " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 BETA_PAX_GRID = [0.015, 0.025, 0.035, 0.045, 0.060, 0.080]
 BETA_FRG_GRID = [0.008, 0.015, 0.025, 0.035, 0.050]
