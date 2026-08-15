@@ -19,12 +19,17 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT, hard_exit
+from lib.paths import ROOT as _ROOT, hard_exit, ensure_parent
 B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ เท่านั้น (กัน worker process spawn มา truncate log)
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+_T0 = __import__("time").time()
+def log(*a):
+    # ใส่เวลาที่ใช้ไปด้วย: รอบ full ชนเพดาน 330 นาทีโดยไม่รู้ว่าเวลาหมดไปกับขั้นไหน
+    msg = "[%5.1f นาที] " % ((__import__("time").time() - _T0) / 60.0) + " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 from lib import scenario as sc
 K_FACTOR = sc.get("k_factor", 0.09)   # สัดส่วนชั่วโมงเร่งด่วนของปริมาณรายวัน (สมมติฐานตามแนวปฏิบัติ; ดู METHODOLOGY)
@@ -196,7 +201,7 @@ def main():
         mt.append(total[best]); ot.append(f['pax_pcu']+f['frg_pcu'])
         mp_.append(F_pax[best]); op_.append(f['pax_pcu'])
         mf.append(F_frg[best]); of_.append(f['frg_pcu'])
-    with open(M + r"\5_calibration\scatter_final.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(ensure_parent(M + r"\5_calibration\scatter_final.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["route", "prov", "km", "geoloc_method", "obs_aadt_veh", "obs_pax_pcu", "obs_frg_pcu",
                     "model_total_pcu", "model_pax_pcu", "model_frg_pcu"])
@@ -211,7 +216,7 @@ def main():
         st_t['k'], st_t['geh5'], st_t['geh10'], st_t['median_geh'], st_t['r2'], st_t['rmse'],
         st_p['k'], st_p['geh5'], st_p['geh10'], st_p['median_geh'], st_p['r2'], st_p['rmse'],
         st_f['k'], st_f['geh5'], st_f['geh10'], st_f['median_geh'], st_f['r2'], st_f['rmse']))
-    open(M + r"\5_calibration\calibration_report_final.txt", "w", encoding="utf-8").write(rep)
+    open(ensure_parent(M + r"\5_calibration\calibration_report_final.txt"), "w", encoding="utf-8").write(rep)
     log(rep)
     pool.close(); pool.join()
     log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์

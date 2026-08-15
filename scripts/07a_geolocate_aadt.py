@@ -20,17 +20,25 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT, hard_exit
+from lib.paths import ROOT as _ROOT, hard_exit, ensure_parent
 B = _ROOT
 LOG = open(B + r"\output\_geo.log", "w", encoding="utf-8")
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+def log(*a):
+    # พิมพ์ออก stdout ด้วย: บน CI ขั้นดัมป์ log ท้าย job หยิบมาแค่ 3 ไฟล์ล่าสุด
+    # _geo.log จึงมองไม่เห็นเลยเวลาไปพังที่ขั้น 13 ทีหลัง
+    msg = " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 # PCU ต่อชนิดรถ (คอลัมน์ AADT กรมทางหลวง) — mapping ระบุใน DATA_SOURCES/METHODOLOGY
 PCU_PAX = {4: 1.0, 5: 1.0, 6: 1.5, 7: 2.0, 8: 2.5, 17: 0.33}  # นั่ง<=7, นั่ง>7, โดยสารเล็ก/กลาง/ใหญ่, สามล้อ+จยย.
 PCU_FRG = {9: 1.5, 10: 2.0, 11: 2.5, 12: 3.0, 13: 3.0}        # บรรทุก 4ล้อ/6ล้อ/10ล้อ/พ่วง/กึ่งพ่วง
 
 def norm_prov(s):
-    return (s or "").replace("อำเภอเมือง", "").replace("จังหวัด", "").replace(" ", "").strip()
+    s = (s or "")
+    for w in ("อำเภอเมือง", "จังหวัด", "จ.", "มหานคร"):
+        s = s.replace(w, "")
+    return s.replace(" ", "").strip()
 def norm_ref(s):
     m = re.match(r"\s*(\d+)", str(s or "")); return m.group(1) if m else None
 def parse_km(s):
@@ -53,12 +61,20 @@ def longest_part(geom):
 try:
     app = QgsApplication([], False); app.initQgis()
     taz = QgsVectorLayer(B + r"\data\zones_taz\taz_provinces.gpkg|layername=taz_provinces", "t", "ogr")
+    # ลงทะเบียนหลายคีย์ต่อจังหวัด: ชื่อไทยและชื่ออังกฤษสะกดต่างกันระหว่าง GADM กับ OSM
+    # (เดิมผูกกับสตริงของ GADM ตรง ๆ พอใช้ขอบเขต OSM จึงจับคู่ไม่ได้เลยสักจังหวัด)
     prov_geom = {}
+    nprov = 0
     for f in taz.getFeatures():
-        prov_geom[norm_prov(f['NL_NAME_1'])] = f.geometry()
-        if f['NAME_1'] == 'Bangkok Metropolis':
-            prov_geom['กรุงเทพมหานคร'] = f.geometry()
-    log("provinces:", len(prov_geom))
+        g = f.geometry(); nprov += 1
+        th = str(f['NL_NAME_1'] or ""); en = str(f['NAME_1'] or "")
+        for k in (norm_prov(th), norm_prov(en)):
+            if k:
+                prov_geom.setdefault(k, g)
+        if en.startswith("Bangkok") or "กรุงเทพ" in th:
+            for k in ("กรุงเทพ", "กรุงเทพฯ", "กทม"):
+                prov_geom.setdefault(k, g)
+    log("provinces: %d (คีย์ชื่อ %d แบบ)" % (nprov, len(prov_geom)))
 
     net = QgsVectorLayer(B + r"\data\network\network_clean.gpkg|layername=network_clean", "n", "ogr")
     by_ref = {}
@@ -77,6 +93,18 @@ try:
         frg = sum(fnum(r[i])*p for i, p in PCU_FRG.items())
         stations.append((route, prov, km, aadt, pax, frg))
     log("stations parsed:", len(stations))
+
+    # ชื่อที่ยังจับคู่ไม่ได้: ลองแบบชื่อหนึ่งเป็นสับสเตตริงของอีกชื่อ (ทำครั้งเดียว ไม่ใช่ต่อสถานี)
+    want = {s[1] for s in stations}
+    miss = sorted(p for p in want if p and p not in prov_geom)
+    for p in list(miss):
+        hit = [k for k in prov_geom if k and (k in p or p in k)]
+        if len(hit) == 1:
+            prov_geom[p] = prov_geom[hit[0]]
+            miss.remove(p)
+    log("จังหวัดใน AADT: %d | จับคู่ได้ %d | ยังไม่ได้ %d%s"
+        % (len(want), len(want) - len(miss), len(miss),
+           (": " + ", ".join(miss[:10])) if miss else ""))
 
     by_route = {}
     for s in stations: by_route.setdefault(s[0], []).append(s)
@@ -154,13 +182,22 @@ try:
             else:
                 n_skip += 1
 
-    o = B + r"\model\5_calibration\aadt_points.gpkg"
+    # model/ ถูก gitignore จึงไม่มีบนเครื่องที่ clone ใหม่ — ถ้าไม่สร้างโฟลเดอร์ก่อน
+    # writer จะไม่เขียนอะไรเลยโดยไม่โยน error ทำให้ขั้น 13/14 อ่านได้ 0 สถานี
+    o = ensure_parent(B + r"\model\5_calibration\aadt_points.gpkg")
     if os.path.exists(o): os.remove(o)
     opt = QgsVectorFileWriter.SaveVectorOptions(); opt.driverName = "GPKG"; opt.layerName = "aadt_points"
-    QgsVectorFileWriter.writeAsVectorFormatV3(out, o, QgsCoordinateTransformContext(), opt)
+    res = QgsVectorFileWriter.writeAsVectorFormatV3(out, o, QgsCoordinateTransformContext(), opt)
+    if (isinstance(res, (tuple, list)) and res[0] != QgsVectorFileWriter.NoError) or not os.path.exists(o):
+        raise RuntimeError("เขียน %s ไม่สำเร็จ: %r" % (o, res))
     tot = n_chain + n_fb
     log("PLACED %d/%d | chainage(validated-in-province)=%d (%.1f%%) fallback=%d skip=%d" % (
         tot, len(stations), n_chain, 100.0*n_chain/max(tot, 1), n_fb, n_skip))
+    if tot == 0:
+        # ปล่อยผ่านไม่ได้: ขั้น 13 จะรันไปอีกชั่วโมงกว่าแล้วค่อยพังเพราะไม่มีสถานีให้เทียบ
+        log("ERR: วางสถานีลงโครงข่ายไม่ได้เลย — ตรวจการจับคู่ชื่อจังหวัดด้านบน "
+            "และฟิลด์ ref ของ network_clean (refs=%d)" % len(by_ref))
+        hard_exit(1)
     log("DONE"); hard_exit(0)   # ไม่ปิด QGIS แบบปกติ: teardown segfault บนคอนเทนเนอร์
 except Exception:
     log("ERR", traceback.format_exc()); raise

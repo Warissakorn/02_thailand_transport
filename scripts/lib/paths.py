@@ -75,3 +75,15 @@ def ensure(*dirs):
     for d in dirs:
         os.makedirs(str(d), exist_ok=True)
     return dirs[0] if dirs else None
+
+
+def ensure_parent(path):
+    """สร้างโฟลเดอร์ที่จะเขียนไฟล์ลงไป แล้วคืน path เดิม
+
+    model/ กับ output/ ถูก gitignore จึงไม่มีอยู่บนเครื่องที่ clone ใหม่ (เช่น CI)
+    ถ้าไม่สร้างก่อน QgsVectorFileWriter จะเขียนไม่สำเร็จอย่างเงียบ ๆ
+    """
+    d = os.path.dirname(str(path))
+    if d:
+        os.makedirs(d, exist_ok=True)
+    return path

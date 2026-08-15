@@ -16,12 +16,17 @@ _d = _os.path.dirname(_os.path.abspath(__file__))
 while _d != _os.path.dirname(_d) and not _os.path.isdir(_os.path.join(_d, "config")):
     _d = _os.path.dirname(_d)
 _sys.path.insert(0, _os.path.join(_d, "scripts"))
-from lib.paths import ROOT as _ROOT, hard_exit
+from lib.paths import ROOT as _ROOT, hard_exit, ensure_parent
 B = _ROOT
 sys.path.insert(0, B + r"\scripts"); sys.path.insert(0, B + r"\config")
 M = B + r"\model"
 LOG = None   # เปิดใน guard __main__ (กัน worker spawn มา truncate log)
-def log(*a): LOG.write(" ".join(str(x) for x in a) + "\n"); LOG.flush()
+_T0 = __import__("time").time()
+def log(*a):
+    # ใส่เวลาที่ใช้ไปด้วย: รอบ full ชนเพดาน 330 นาทีโดยไม่รู้ว่าเวลาหมดไปกับขั้นไหน
+    msg = "[%5.1f นาที] " % ((__import__("time").time() - _T0) / 60.0) + " ".join(str(x) for x in a)
+    LOG.write(msg + "\n"); LOG.flush()
+    print(msg, flush=True)
 
 BETA_PAX_GRID = [0.015, 0.025, 0.035, 0.045, 0.060, 0.080]
 BETA_FRG_GRID = [0.008, 0.015, 0.025, 0.035, 0.050]
@@ -122,17 +127,32 @@ def part_a():
     eidx = QgsSpatialIndex()
     for e in range(G.nE):
         f = QgsFeature(e+1); f.setGeometry(G.Eg[e]); eidx.addFeature(f)
+    # วินิจฉัยก่อนวน: ถ้าได้ 0 จุด ต้องแยกให้ออกว่า "ชั้นว่าง/เปิดไม่ได้" หรือ "ไกลเกิน SNAP_TOL"
+    ext = aadt.extent(); gxy = np.asarray(G.nxy)
+    log("aadt layer: valid=%s n=%d crs=%s extent=(%.0f %.0f)-(%.0f %.0f)"
+        % (aadt.isValid(), aadt.featureCount(), aadt.sourceCrs().authid(),
+           ext.xMinimum(), ext.yMinimum(), ext.xMaximum(), ext.yMaximum()))
+    log("graph extent: (%.0f %.0f)-(%.0f %.0f) | edges=%d"
+        % (gxy[:, 0].min(), gxy[:, 1].min(), gxy[:, 0].max(), gxy[:, 1].max(), G.nE))
     st_edge = []; st_pax = []; st_frg = []; st_tot = []
+    dists = []
     for f in aadt.getFeatures():
         p = f.geometry()
         best = None; bd = 1e18
         for fid in eidx.nearestNeighbor(p.asPoint(), 8):
             d = G.Eg[fid-1].distance(p)
             if d < bd: bd = d; best = fid-1
+        dists.append(bd)
         if best is not None and bd <= SNAP_TOL:
             st_edge.append(best); st_pax.append(f['pax_pcu']); st_frg.append(f['frg_pcu']); st_tot.append(f['aadt'])
-    st_edge = np.array(st_edge); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
+    st_edge = np.array(st_edge, dtype=np.int64); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
     log("stations snapped to edges: %d" % len(st_edge))
+    if dists:
+        dd = np.sort(np.asarray(dists, float))
+        log("ระยะสถานี->edge ที่ใกล้ที่สุด (m): min=%.1f median=%.1f max=%.1f (SNAP_TOL=%.0f)"
+            % (dd[0], dd[len(dd)//2], dd[-1], SNAP_TOL))
+    if st_edge.size == 0:
+        raise SystemExit("ไม่มีสถานี AADT ติดโครงข่ายเลย — ตรวจ output/_geo.log (ขั้น 07a) ก่อนรัน 13")
 
     # score per beta (แยกสาย)
     curves = []
@@ -150,7 +170,7 @@ def part_a():
         cur = best[stream][1]
         if cur is None or stats['r2'] > cur['r2']:
             best[stream] = (b, stats)
-    with open(M + r"\5_calibration\calibration_search.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(ensure_parent(M + r"\5_calibration\calibration_search.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(curves[0].keys())); w.writeheader()
         for c in curves: w.writerow(c)
     return best
@@ -312,7 +332,7 @@ def part_b(target_pax, target_frg):
     fac_frg = tot_fall.get('truck', 0)*2.0/trips_fall
     sh_frg_all = {m: v/trips_fall for m, v in tot_fall.items()}
 
-    with open(M + r"\5_calibration\mode_share_calibrated.csv", "w", newline="", encoding="utf-8") as fh:
+    with open(ensure_parent(M + r"\5_calibration\mode_share_calibrated.csv"), "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["stream", "mode", "model_share_interzonal", "target_2565", "share_all_trips"])
         for m in ('car', 'bus', 'rail', 'air', 'motorcycle', 'water'):

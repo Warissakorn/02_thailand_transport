@@ -440,8 +440,14 @@ def write_flow_gpkg(G, flows_dict, out_path, layer_name):
         ft.setAttributes([round(float(a[e]), 1) for a in arrays])
         feats.append(ft)
     dp.addFeatures(feats)
+    # model/ ถูก gitignore: บนเครื่องที่ clone ใหม่โฟลเดอร์ปลายทางยังไม่มี
+    # ถ้าไม่สร้างก่อน writer จะเงียบ ๆ ไม่เขียนไฟล์ แล้วขั้นถัดไปอ่านได้ 0 เส้น
+    d = os.path.dirname(str(out_path))
+    if d: os.makedirs(d, exist_ok=True)
     if os.path.exists(out_path): os.remove(out_path)
     o = QgsVectorFileWriter.SaveVectorOptions()
     o.driverName = "GPKG"; o.layerName = layer_name
-    QgsVectorFileWriter.writeAsVectorFormatV3(lyr, out_path, QgsCoordinateTransformContext(), o)
+    res = QgsVectorFileWriter.writeAsVectorFormatV3(lyr, out_path, QgsCoordinateTransformContext(), o)
+    if (isinstance(res, (tuple, list)) and res[0] != QgsVectorFileWriter.NoError) or not os.path.exists(out_path):
+        raise RuntimeError("เขียน %s ไม่สำเร็จ: %r" % (out_path, res))
     return len(feats)
