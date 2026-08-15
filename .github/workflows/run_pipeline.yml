@@ -24,6 +24,13 @@ on:
         required: false
         default: base
         type: string
+      extras:
+        description: >
+          สร้างชั้นเสริมและไฟล์ .qgz ด้วย (09a/09d/10a/10b/11 + build_project)
+          — ใช้เวลาเพิ่ม ~50 นาที และไม่จำเป็นต่อรายงาน/เว็บผลลัพธ์
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
     paths:
@@ -181,8 +188,11 @@ jobs:
         if: env.STAGES == 'full'
         run: python3 scripts/15_report_outputs.py
 
+      # ขั้นเสริมสำหรับเปิดใน QGIS เดสก์ท็อป ไม่ใช่ผลลัพธ์หลัก — ปิดไว้เป็นค่าตั้งต้น
+      # เพราะรอบเต็มถึงขั้น 15 ใช้เวลา ~285 นาที ส่วนขั้นนี้อีก ~50 นาที รวมแล้วเกิน
+      # เพดาน 330 นาทีของ job (รอบ #31 ถูกตัดกลางคันตรงนี้ทั้งที่รายงานออกครบแล้ว)
       - name: Auxiliary layers + assemble .qgz
-        if: env.STAGES == 'full'
+        if: env.STAGES == 'full' && inputs.extras
         run: |
           python3 scripts/09a_mode_desire.py
           python3 scripts/09d_sequence_paths.py
