@@ -1,0 +1,40 @@
+MIT License
+
+Copyright (c) 2026 Warissakorn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+หมายเหตุเรื่องข้อมูล (ไม่ใช่ส่วนหนึ่งของสัญญา MIT ข้างต้น)
+
+สัญญา MIT นี้ครอบคลุม **โค้ดและเอกสารในรีโปนี้เท่านั้น** ข้อมูลจากภายนอกที่ไปป์ไลน์
+ดาวน์โหลดมาใช้อยู่ภายใต้สัญญาของเจ้าของข้อมูลแต่ละราย ไม่ได้ถูกเปลี่ยนเป็น MIT
+และผลลัพธ์ที่สร้างจากข้อมูลเหล่านั้นก็ยังผูกกับเงื่อนไขต้นทาง (ดู docs/DATA_SOURCES.md):
+
+- OpenStreetMap (ผ่าน Geofabrik) — ODbL 1.0 ต้องระบุ "© OpenStreetMap contributors"
+  และงานที่ดัดแปลงจากฐานข้อมูลนี้ต้องเผยแพร่ภายใต้ ODbL เช่นกัน
+  ใช้ทั้งโครงข่ายถนน/ราง/น้ำ/อากาศ และขอบเขตการปกครองสำรอง (scripts/02c_boundaries_osm.py)
+- GADM v4.1 — ใช้ได้เพื่อการศึกษา/ไม่ใช่เชิงพาณิชย์ และ **ห้ามเผยแพร่ซ้ำ**
+  ห้ามอัปไฟล์ GADM หรือสำเนาของมันขึ้น release สาธารณะของรีโปนี้
+- WorldPop — CC BY 4.0
+- AADT กรมทางหลวง (data.go.th) และสถิติของ สนข./กระทรวงคมนาคม — เงื่อนไขตามผู้เผยแพร่
+
+ตัวเลขที่ได้จากแบบจำลองเป็นผลการศึกษา ไม่ใช่ข้อมูลทางการ และยังไม่ผ่านเกณฑ์การปรับเทียบ
+ที่โครงการตั้งไว้ (ดู docs/LIMITATIONS.md) การนำไปใช้อ้างอิงต้องระบุที่มาและข้อจำกัดเสมอ
