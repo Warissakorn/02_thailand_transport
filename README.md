@@ -11,6 +11,8 @@ mode choice → assignment) ครอบคลุม **ถนน · ราง ·
 - แนวทางพยากรณ์อนาคต 30 ปี + scenario + subarea → [`docs/FORECASTING_GUIDE.md`](docs/FORECASTING_GUIDE.md)
 - ประวัติผลปรับเทียบทุก variant → [`docs/CALIBRATION.md`](docs/CALIBRATION.md)
 - ตาราง/รูปพร้อมใส่รายงาน → `output/report/{tables,figures}/`
+- สัญญาอนุญาต → [`LICENSE`](LICENSE): โค้ดและเอกสารเป็น MIT ส่วนข้อมูลจากภายนอก
+  ยังอยู่ใต้สัญญาของเจ้าของเดิม (OSM = ODbL, GADM = ห้ามเผยแพร่ซ้ำ, WorldPop = CC BY 4.0)
 
 ## โครงสร้างโปรเจกต์
 ```
