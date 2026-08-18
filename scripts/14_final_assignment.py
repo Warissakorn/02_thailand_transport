@@ -56,6 +56,27 @@ def workers():
 
 
 
+
+# กลุ่มปริมาณรายวันสำหรับ %RMSE — แนวปฏิบัติของโมเดลระดับภูมิภาค/ประเทศ (FHWA, state DOT)
+# ใช้แทน GEH สำหรับปริมาณรายวัน เพราะ GEH นิยามไว้กับปริมาณรายชั่วโมง
+RMSE_GROUPS = [(0, 5000), (5000, 10000), (10000, 20000), (20000, 50000), (50000, float('inf'))]
+
+
+def pct_rmse_table(model, obs):
+    """ตาราง %RMSE แยกตามกลุ่มปริมาณรายวัน (ไม่ scale ด้วย k — วัดตามที่โมเดลให้จริง)"""
+    out = ["--- %RMSE แยกตามกลุ่มปริมาณ (รายวัน, ไม่ปรับ k) ---\n"]
+    for lo, hi in RMSE_GROUPS:
+        m_ = (obs >= lo) & (obs < hi)
+        if not m_.any():
+            continue
+        o = obs[m_]; mo = model[m_]
+        pr = 100.0*math.sqrt(float(((o-mo)**2).mean()))/max(float(o.mean()), 1e-9)
+        out.append("  %-14s n=%4d  obs เฉลี่ย=%7.0f  โมเดลเฉลี่ย=%7.0f  %%RMSE=%6.1f%%\n"
+                   % ("%d-%s" % (lo, "∞" if hi == float('inf') else int(hi)),
+                      int(m_.sum()), o.mean(), mo.mean(), pr))
+    return "".join(out)
+
+
 def local_background(G, dcpts, trips_local):
     """กระแสจราจรท้องถิ่นต่อ edge (PCU/วัน) จากทริปที่ต้นทาง-ปลายทางอยู่อำเภอเดียวกัน
 
@@ -258,10 +279,20 @@ def main():
     st_f = fit_stats(mf[use], of_[use])
     line = lambda n, s: "%-6s: k=%.4g GEH<5=%.1f%% GEH<10=%.1f%% medGEH=%.1f R2=%.3f RMSE=%.0f\n" % (
         n, s['k'], s['geh5'], s['geh10'], s['median_geh'], s['r2'], s['rmse'])
+    # GEH นิยามไว้สำหรับ "ปริมาณรายชั่วโมง" ไม่ใช่รายวัน (ATAP §5, TAG M3.1)
+    # ที่ผ่านมาโปรเจกต์นี้คิด GEH บน AADT ตรง ๆ ค่าจึงถูกขยายด้วย sqrt(24/K) โดยอัตโนมัติ
+    # -> คิดใหม่บนชั่วโมงเร่งด่วน (ทั้งโมเดลและค่านับคูณ K เท่ากัน) จึงเทียบเกณฑ์สากลได้
+    hp_t = fit_stats(mt[use]*K_FACTOR, ot[use]*K_FACTOR)
+    hp_p = fit_stats(mp_[use]*K_FACTOR, op_[use]*K_FACTOR)
+    hp_f = fit_stats(mf[use]*K_FACTOR, of_[use]*K_FACTOR)
     rep = ("=== Final calibration (district, directed, multi-path) vs AADT project 2569 ===\n"
            "stations: %d (chainage %d / fallback %d) — ตัวเลขหลักคิดจากสถานี chainage\n"
            % (len(rows_out), int(good.sum()), int((~good).sum()))
-           + line("TOTAL", st_t) + line("PAX", st_p) + line("FRG", st_f))
+           + "--- ชั่วโมงเร่งด่วน (K=%.3f) — เกณฑ์ GEH ใช้กับหน่วยนี้ ---\n" % K_FACTOR
+           + line("TOTAL", hp_t) + line("PAX", hp_p) + line("FRG", hp_f)
+           + "--- รายวัน (AADT) — GEH ที่หน่วยนี้เทียบเกณฑ์สากลไม่ได้ ดูที่ %RMSE แทน ---\n"
+           + line("TOTAL", st_t) + line("PAX", st_p) + line("FRG", st_f)
+           + pct_rmse_table(mt[use], ot[use]))
     if good.sum() >= 200 and (~good).sum():
         rep += ("--- อ้างอิง: สถานี fallback (ตำแหน่งไม่ยืนยัน) ---\n"
                 + line("TOTAL", fit_stats(mt[~good], ot[~good]))
