@@ -206,16 +206,27 @@ def main():
         w.writerow(["route", "prov", "km", "geoloc_method", "obs_aadt_veh", "obs_pax_pcu", "obs_frg_pcu",
                     "model_total_pcu", "model_pax_pcu", "model_frg_pcu"])
         w.writerows(rows_out)
-    st_t = fit_stats(mt, ot); st_p = fit_stats(mp_, op_); st_f = fit_stats(mf, of_)
+    # แยกรายงานตามวิธีวางสถานี: chainage = ตรวจแล้วว่าตกในจังหวัดที่ระบุ
+    # fallback = เกลี่ยตามความยาวสายในจังหวัด ตำแหน่งคลาดได้หลายกิโลเมตร จึงเทียบกันคนละชั้น
+    meth = np.array([r[3] for r in rows_out])
+    mt = np.asarray(mt, float); ot = np.asarray(ot, float)
+    mp_ = np.asarray(mp_, float); op_ = np.asarray(op_, float)
+    mf = np.asarray(mf, float); of_ = np.asarray(of_, float)
+    good = meth == 'chainage'
+    use = good if good.sum() >= 200 else np.ones(len(meth), dtype=bool)
+    st_t = fit_stats(mt[use], ot[use]); st_p = fit_stats(mp_[use], op_[use])
+    st_f = fit_stats(mf[use], of_[use])
+    line = lambda n, s: "%-6s: k=%.4g GEH<5=%.1f%% GEH<10=%.1f%% medGEH=%.1f R2=%.3f RMSE=%.0f\n" % (
+        n, s['k'], s['geh5'], s['geh10'], s['median_geh'], s['r2'], s['rmse'])
     rep = ("=== Final calibration (district, directed, multi-path) vs AADT project 2569 ===\n"
-           "stations: %d\n"
-           "TOTAL : k=%.4g GEH<5=%.1f%% GEH<10=%.1f%% medGEH=%.1f R2=%.3f RMSE=%.0f\n"
-           "PAX   : k=%.4g GEH<5=%.1f%% GEH<10=%.1f%% medGEH=%.1f R2=%.3f RMSE=%.0f\n"
-           "FRG   : k=%.4g GEH<5=%.1f%% GEH<10=%.1f%% medGEH=%.1f R2=%.3f RMSE=%.0f\n" % (
-        len(rows_out),
-        st_t['k'], st_t['geh5'], st_t['geh10'], st_t['median_geh'], st_t['r2'], st_t['rmse'],
-        st_p['k'], st_p['geh5'], st_p['geh10'], st_p['median_geh'], st_p['r2'], st_p['rmse'],
-        st_f['k'], st_f['geh5'], st_f['geh10'], st_f['median_geh'], st_f['r2'], st_f['rmse']))
+           "stations: %d (chainage %d / fallback %d) — ตัวเลขหลักคิดจากสถานี chainage\n"
+           % (len(rows_out), int(good.sum()), int((~good).sum()))
+           + line("TOTAL", st_t) + line("PAX", st_p) + line("FRG", st_f))
+    if good.sum() >= 200 and (~good).sum():
+        rep += ("--- อ้างอิง: สถานี fallback (ตำแหน่งไม่ยืนยัน) ---\n"
+                + line("TOTAL", fit_stats(mt[~good], ot[~good]))
+                + "--- อ้างอิง: ทุกสถานีรวมกัน ---\n"
+                + line("TOTAL", fit_stats(mt, ot)))
     open(ensure_parent(M + r"\5_calibration\calibration_report_final.txt"), "w", encoding="utf-8").write(rep)
     log(rep)
     pool.close(); pool.join()

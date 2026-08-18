@@ -60,7 +60,7 @@ env:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 355
     # image ทางการของ QGIS: มี PyQGIS (qgis.core/qgis.analysis/processing) + numpy/scipy/gdal
     # เทียบเท่าสภาพแวดล้อมที่ qpy.bat เตรียมให้บน Windows
     container:

@@ -134,7 +134,7 @@ def part_a():
            ext.xMinimum(), ext.yMinimum(), ext.xMaximum(), ext.yMaximum()))
     log("graph extent: (%.0f %.0f)-(%.0f %.0f) | edges=%d"
         % (gxy[:, 0].min(), gxy[:, 1].min(), gxy[:, 0].max(), gxy[:, 1].max(), G.nE))
-    st_edge = []; st_pax = []; st_frg = []; st_tot = []
+    st_edge = []; st_pax = []; st_frg = []; st_tot = []; st_meth = []
     dists = []
     for f in aadt.getFeatures():
         p = f.geometry()
@@ -144,9 +144,21 @@ def part_a():
             if d < bd: bd = d; best = fid-1
         dists.append(bd)
         if best is not None and bd <= SNAP_TOL:
-            st_edge.append(best); st_pax.append(f['pax_pcu']); st_frg.append(f['frg_pcu']); st_tot.append(f['aadt'])
+            st_edge.append(best); st_pax.append(f['pax_pcu']); st_frg.append(f['frg_pcu'])
+            st_tot.append(f['aadt']); st_meth.append(str(f['method'] or ''))
     st_edge = np.array(st_edge, dtype=np.int64); st_pax = np.array(st_pax, float); st_frg = np.array(st_frg, float)
     log("stations snapped to edges: %d" % len(st_edge))
+
+    # ปรับเทียบเฉพาะสถานีที่วางแบบ chainage (ตรวจแล้วว่าตกในจังหวัดที่ระบุ)
+    # สถานี fallback ถูกเกลี่ยตามสัดส่วนความยาวสายในจังหวัด ตำแหน่งจึงคลาดได้หลายกิโลเมตร
+    # การ fit กับตำแหน่งที่เดาเอาคือการ fit กับ noise -> ทำให้ beta ที่เลือกเพี้ยนไปด้วย
+    meth = np.array(st_meth)
+    good = meth == 'chainage'
+    if good.sum() >= 200:
+        log("ใช้เฉพาะสถานี chainage ในการปรับเทียบ: %d จาก %d จุด" % (int(good.sum()), len(st_edge)))
+        st_edge = st_edge[good]; st_pax = st_pax[good]; st_frg = st_frg[good]
+    else:
+        log("สถานี chainage มีแค่ %d จุด (<200) จึงใช้ทุกจุดตามเดิม" % int(good.sum()))
     if dists:
         dd = np.sort(np.asarray(dists, float))
         log("ระยะสถานี->edge ที่ใกล้ที่สุด (m): min=%.1f median=%.1f max=%.1f (SNAP_TOL=%.0f)"
