@@ -41,7 +41,7 @@ REQUIRED_INPUTS = [
 ]
 
 # key ในหมวด run ที่สคริปต์อ่านจริง (ดู 13/14 และ docs/PIPELINE_IO.md)
-RUN_KEYS = {"k_factor", "eq_iter", "workers", "dijkstra_batch"}
+RUN_KEYS = {"k_factor", "eq_iter", "workers", "dijkstra_batch", "local_trip_km"}
 
 # ช่วงค่าที่ยอมรับ (นอกช่วงนี้แปลว่าน่าจะพิมพ์ผิด)
 RANGES = {
@@ -52,7 +52,7 @@ RANGES = {
     "gravity_max_iter": (1, 100000), "gravity_tol": (0.0, 1.0),
     "aadt_year": (2500, 2700), "geh_target": (0.0, 100.0), "geh_pass_pct": (0.0, 1.0),
     "k_factor": (0.0, 1.0), "eq_iter": (1, 100), "workers": (0, 64),
-    "dijkstra_batch": (1, 1000),
+    "dijkstra_batch": (1, 1000), "local_trip_km": (0.0, 100.0),
 }
 
 SECTIONS = ("model", "calibrated", "run")

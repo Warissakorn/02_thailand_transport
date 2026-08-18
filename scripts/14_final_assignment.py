@@ -36,6 +36,9 @@ K_FACTOR = sc.get("k_factor", 0.09)   # สัดส่วนชั่วโม�
 EQ_ITER = int(sc.get("eq_iter", 8))  # multi-path MSA ต่อ component (แต่ละรอบ assign 7 สาย -> หนักกว่ารอบละ ~4x)
 ALPHA, BETA_BPR = 0.15, 4.0
 SNAP_TOL = 1500.0
+# ระยะเดินทางเฉลี่ยของทริปภายในอำเภอเดียวกัน (กม.) — ใช้แปลงทริปท้องถิ่นเป็น VKT
+# แล้วเกลี่ยลงถนนในอำเภอนั้นเป็นชั้น background (ดู local_background)
+LOCAL_TRIP_KM = float(sc.get("local_trip_km", 8.0))
 # ค่าที่ใช้ตอนสร้าง district_tripgen.csv (ขั้น 08a อ่านจาก model_params/scenario หมวด model)
 _m = sc.section("model")
 BASE_RATE, BASE_FF = _m.get("trip_rate_pax", 2.0), _m.get("freight_factor", 0.10)
@@ -50,6 +53,30 @@ def workers():
     if n <= 0:
         n = min(os.cpu_count() or 2, 4)
     return max(n, 1)
+
+
+
+def local_background(G, dcpts, trips_local):
+    """กระแสจราจรท้องถิ่นต่อ edge (PCU/วัน) จากทริปที่ต้นทาง-ปลายทางอยู่อำเภอเดียวกัน
+
+    แบบจำลองนี้เป็น intercity: ขั้น assignment ตัดคู่ i==j ทิ้งทั้งหมด ทางหลวงสายรอง
+    จึงแทบไม่มีปริมาณ ทั้งที่ AADT จริงส่วนใหญ่มาจากการเดินทางในพื้นที่ (medGEH ~79)
+    ชั้นนี้เติมส่วนที่ขาด โดยไม่ route: ทริปท้องถิ่น x ระยะเฉลี่ย = VKT ของอำเภอนั้น
+    แล้วเกลี่ยตามน้ำหนัก (ความจุ x ความยาว) ของถนนในอำเภอ -> หารความยาวกลับเป็น PCU/วัน
+
+    อำเภอของแต่ละ edge ใช้ "centroid อำเภอที่ใกล้ที่สุด" (Voronoi) ซึ่งพอสำหรับชั้น
+    background และเร็วกว่า point-in-polygon กับ 3.4 ล้านเส้นมาก
+    ข้อจำกัด: ไม่เข้าไปในลูป MSA จึงไม่มีผลย้อนกลับต่อความแออัด (ดู docs/LIMITATIONS.md)
+    """
+    from scipy.spatial import cKDTree
+    mid = 0.5*(G.nxy[G.Eu] + G.nxy[G.Ev])
+    cen = np.array([[p.x(), p.y()] for _, p in dcpts])
+    who = cKDTree(cen).query(mid)[1]
+    w = np.maximum(G.Ecap_hr, 1.0) * np.maximum(G.Elen, 1.0)
+    vkt = trips_local * LOCAL_TRIP_KM * 1000.0                                    # PCU-เมตร/วัน
+    denom = np.bincount(who, weights=w, minlength=len(cen))
+    share = w/np.maximum(denom[who], 1e-9)
+    return vkt[who]*share/np.maximum(G.Elen, 1.0)
 
 
 def main():
@@ -103,8 +130,13 @@ def main():
         P['frg'][i] = float(r['P_frg']); A['frg'][i] = float(r['A_frg'])
     s_pax = cp.TRIP_RATE_PAX/BASE_RATE
     s_frg = s_pax * (cp.FREIGHT_FACTOR/BASE_FF)
+    P_raw = {k: P[k].copy() for k in P}       # ก่อน scale = การเดินทางทั้งหมดที่เกิดในอำเภอ
     for k in ('pax',): P[k] *= s_pax; A[k] *= s_pax
     for k in ('frg',): P[k] *= s_frg; A[k] *= s_frg
+    # ส่วนต่าง raw - intercity = ทริปที่เกิดขึ้นแต่ไม่เคยถูก assign (การเดินทางในพื้นที่)
+    trips_local = ((P_raw['pax']-P['pax'])*cp.FAC_PAX_ROAD
+                   + (P_raw['frg']-P['frg'])*cp.FAC_FRG_ROAD*2.0)
+    trips_local = np.maximum(trips_local, 0.0)
     log("scaled tripgen: total pax=%.0f frg=%.0f" % (P['pax'].sum(), P['frg'].sum()))
 
     cost = od_cost_matrix(G, cnode)
@@ -169,6 +201,10 @@ def main():
 
     # ---- แปลง peak -> รายวัน (flow กระจายหลายเส้นแล้ว) แยก component (additive เป๊ะ) ----
     flows = [xi/K_FACTOR for xi in xk]        # daily component flows
+    fl_loc = local_background(G, dc, trips_local)
+    flows.append(fl_loc); comp.append(("flowf_local", None))
+    log("local background: ทริปท้องถิ่น=%.0f PCU/วัน links=%d total=%.0f (ระยะเฉลี่ย %.1f กม.)"
+        % (trips_local.sum(), int((fl_loc > 0).sum()), fl_loc.sum(), LOCAL_TRIP_KM))
     total = total_of(flows)
     for (name, _), fl in zip(comp, flows):
         nlk = write_flow_gpkg(G, {'vol_pcu': fl}, M + r"\4_trip_assignment\\" + name + ".gpkg", name)
@@ -185,8 +221,12 @@ def main():
     eidx = QgsSpatialIndex()
     for e in range(G.nE):
         f = QgsFeature(e+1); f.setGeometry(G.Eg[e]); eidx.addFeature(f)
-    F_pax = flows[0] + flows[2] + flows[4] + flows[5]   # pax components
-    F_frg = flows[1] + flows[3] + flows[6]
+    # ชั้น local เป็น PCU รวม แบ่งกลับเป็น pax/frg ตามสัดส่วนทริปท้องถิ่นที่ใช้สร้างมัน
+    loc_p = float(((P_raw['pax']-P['pax'])*cp.FAC_PAX_ROAD).sum())
+    loc_f = float(((P_raw['frg']-P['frg'])*cp.FAC_FRG_ROAD*2.0).sum())
+    sp_loc = loc_p/max(loc_p+loc_f, 1e-9)
+    F_pax = flows[0] + flows[2] + flows[4] + flows[5] + fl_loc*sp_loc
+    F_frg = flows[1] + flows[3] + flows[6] + fl_loc*(1.0-sp_loc)
     rows_out = []; mt = []; ot = []; mp_ = []; op_ = []; mf = []; of_ = []
     for f in aadt.getFeatures():
         p = f.geometry(); best = None; bd = 1e18
